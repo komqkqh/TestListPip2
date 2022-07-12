@@ -9,7 +9,7 @@
         android:id="@+id/fl_top"
         android:layout_width="match_parent"
         android:layout_height="250dp"
-        android:background="#800080"
+        android:background="@drawable/cat1"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">

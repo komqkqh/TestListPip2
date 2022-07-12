@@ -84,42 +84,65 @@ class PlayerViewFragment : Fragment() {
                         Log.i("TEST", "ACTION_DOWN")
 //                        moveX = v.x - event.rawX
                         moveY = parentView.y - event.rawY
+                        if (isPipMode) {
+                            moveX = parentView.x - event.rawX
+                        }
                     }
                     MotionEvent.ACTION_MOVE -> {
 
-                        // 드래그 가속도 측정
-                        tracker.computeCurrentVelocity(1)
-                        if (velocity < abs(tracker.yVelocity)) {
-                            velocity = abs(tracker.yVelocity)
-                        }
+                        if (isPipMode) {
+                            // pip 용 드래그만
+                            var checkX = event.rawX + moveX
 
-                        // 드래그 이동
-                        var checkY = event.rawY + moveY
-                        if (checkY < 0) {
-                            checkY = 0f
-                        }
-                        parentView.animate()
-//                            .x(event.rawX + moveX)
-                            .y(checkY)
-                            .setDuration(0)
-                            .start()
+                            var checkY = event.rawY + moveY
 
-                        Log.i("TEST", "ACTION_MOVE velocity:[$velocity], checkY:[$checkY]")
+                            parentView.animate()
+                                .x(checkX)
+                                .y(checkY)
+                                .setDuration(0)
+                                .start()
+                        } else {
+                            // 드래그 가속도 측정
+                            tracker.computeCurrentVelocity(1)
+                            if (velocity < abs(tracker.yVelocity)) {
+                                velocity = abs(tracker.yVelocity)
+                            }
+
+                            // 드래그 이동
+                            var checkY = event.rawY + moveY
+                            if (checkY < 0) {
+                                checkY = 0f
+                            }
+
+                            parentView.animate()
+                                .y(checkY)
+                                .setDuration(0)
+                                .start()
+                            Log.i("TEST", "ACTION_MOVE velocity:[$velocity], checkY:[$checkY]")
+                        }
                     }
                     MotionEvent.ACTION_UP -> {
-                        var checkResumeY = parentView.height / 3
-                        Log.i("TEST", "ACTION_UP 최고 가속도:[$velocity] y:[${parentView.y}], checkResumeY:[$checkResumeY]")
 
                         // 드래그 상태에 따라 위로 올릴지 내릴지 판단해줌
                         if (isPipMode) {
-                            if (CHECK_DRAG_SPEED < velocity || parentView.y < (checkResumeY * 2)) {
-                                Log.i("TEST", "ACTION_UP isPipMode:[$isPipMode] drag")
-                                moveMax(parentView, v)
-                            } else {
-                                Log.i("TEST", "ACTION_UP isPipMode:[$isPipMode] 복귀")
-                                moveMin(parentView, v)
-                            }
+//                            if (CHECK_DRAG_SPEED < velocity || parentView.y < (checkResumeY * 2)) {
+//                                Log.i("TEST", "ACTION_UP isPipMode:[$isPipMode] drag")
+//                                moveMax(parentView, v)
+//                            } else {
+//                                Log.i("TEST", "ACTION_UP isPipMode:[$isPipMode] 복귀")
+//                                moveMin(parentView, v)
+//                            }
+                            actionUpMove(parentView, v, parentView.x, parentView.y)
+                            Log.i(
+                                "TEST",
+                                "ACTION_UP pip Mode x,y:(${parentView.x}, ${parentView.y})"
+                            )
                         } else {
+                            var checkResumeY = parentView.height / 3 // 1/3 위치 이상 넘어가면 드래그 되도록 체크
+                            Log.i(
+                                "TEST",
+                                "ACTION_UP 최고 가속도:[$velocity] y:[${parentView.y}], checkResumeY:[$checkResumeY]"
+                            )
                             // 드래그 복귀, 내리기 결정
                             if (CHECK_DRAG_SPEED < velocity || parentView.y > checkResumeY) {
                                 Log.i("TEST", "ACTION_UP isPipMode:[$isPipMode] drag")
@@ -139,7 +162,7 @@ class PlayerViewFragment : Fragment() {
             }
 
             /**
-             * 최소화
+             * 최대화
              */
             fun moveMax(parentView: View, view: View) {
                 isPipMode = false
@@ -160,18 +183,25 @@ class PlayerViewFragment : Fragment() {
             }
 
             /**
-             * 최대화
+             * 최소화
              */
             fun moveMin(parentView: View, view: View) {
                 isPipMode = true
                 binding.flBottom.alpha = 0f
 
-                // 이동
-                moveY = parentView.height.toFloat() - (binding.flTop.height / 2)
-                moveX = parentView.width.toFloat() - (binding.flTop.width / 2)
-                // 줄어든 사이즈만큼 위치 조절
-                moveY -= binding.flTop.height / 4
-                moveX -= binding.flTop.width / 4
+                var topHeight = binding.flTop.height.toFloat()
+                var topWidth = binding.flTop.width.toFloat()
+
+                // 이동 (원래 사이즈만큼)
+                moveY = parentView.height.toFloat() - topHeight
+                moveX = parentView.width.toFloat() - topWidth
+
+                Log.i("TEST", "moveMin() move:($moveX, $moveY)")
+
+                // 줄어든 사이즈만큼 위치 조절 (비율로 줄어든 만큼 차이점을 계산) !! scale 하게되면 가운데로 줄어들어서 좌표값 계산을 반으로 나눠서 해야됨.
+                moveY += (topHeight - (topHeight / scaleSize))/ 2
+                moveX += (topWidth - (topWidth / scaleSize))/ 2
+                Log.i("TEST", "moveMin() move:($moveX, $moveY) - height:$topHeight -> ${(topHeight - (topHeight / scaleSize))/ 2}, width:$topWidth -> ${(topWidth - (topWidth / scaleSize))/ 2}")
 
                 parentView.animate()
                     .translationY(moveY)
@@ -181,12 +211,53 @@ class PlayerViewFragment : Fragment() {
 
                 // 사이즈 조절
                 view.animate()
-                    .scaleX(0.5f)
-                    .scaleY(0.5f)
+                    .scaleX(1 / scaleSize)
+                    .scaleY(1 / scaleSize)
                     .setDuration(100)
                     .start()
             }
         })
+    }
+
+    /**
+     * 4등분 화면으로 이동시켜주는 애니메이션 처리
+     */
+    fun actionUpMove(parent: View, view: View, x: Float, y: Float) {
+        // 마진값
+        var margin = 0
+
+        // 줄어든 사이즈만큼 위치 조절 (비율로 줄어든 만큼 차이점을 계산)
+        var scaleSizeX = (binding.flTop.width - (binding.flTop.width / scaleSize))/ 2
+        var scaleSizeY = (binding.flTop.height - (binding.flTop.height / scaleSize))/ 2
+
+        // 선택한 이미지 정 가운데 좌표
+        var width = (x + (view.width / 2))
+        var height = (y + (view.height / 2))
+
+        // 값 보정
+        width -= scaleSizeX
+        height -= scaleSizeY
+
+        var actionMoveX: Float = if (width < (parent.width / 2) - scaleSizeX) {
+            margin.toFloat() - scaleSizeX
+        } else {
+            (parent.width - view.width - margin).toFloat() + scaleSizeX
+        }
+        Log.d("TEST", "actionMove x : if($width > ${(parent.width / 2)}) = $actionMoveX")
+
+        var actionMoveY: Float = if (height < (parent.height / 2) - scaleSizeY) {
+            margin.toFloat() - scaleSizeY
+        } else {
+            (parent.height - view.height - margin).toFloat() + scaleSizeY
+        }
+        Log.d("TEST", "actionMove y : if($height > ${(parent.height / 2)}) = $actionMoveY")
+
+        Log.d("TEST", "actionMove:[$actionMoveX, $actionMoveY], x,y:[$x, $y]")
+        parent.animate()
+            .translationX(actionMoveX)
+            .translationY(actionMoveY)
+            .setDuration(100)
+            .start()
     }
 
     /**
