@@ -61,7 +61,12 @@ class PlayerViewFragment : Fragment() {
     /**
      * 축소 사이즈
      */
-    private var scaleSize = 2f
+    private val scaleSize = 2f
+
+    /**
+     * 클릭 민감도
+     */
+    private val clickSensitivity = 5f
 
     /**
      * 1. 위 아래 드래그 가능 (복귀도 해야됨)
@@ -74,6 +79,8 @@ class PlayerViewFragment : Fragment() {
         var velocity = 0f
         binding.flTop.setOnTouchListener(object : View.OnTouchListener {
 
+            var moveCheckX = 0f
+            var moveCheckY = 0f
             override fun onTouch(v: View, event: MotionEvent): Boolean {
 
                 var parentView: View = v.parent as View
@@ -84,16 +91,16 @@ class PlayerViewFragment : Fragment() {
                         Log.i("TEST", "ACTION_DOWN")
 //                        moveX = v.x - event.rawX
                         moveY = parentView.y - event.rawY
-                        if (isPipMode) {
-                            moveX = parentView.x - event.rawX
-                        }
+                        moveX = parentView.x - event.rawX
+
+                        moveCheckX = event.rawX + moveX
+                        moveCheckY = event.rawY + moveY
                     }
                     MotionEvent.ACTION_MOVE -> {
 
                         if (isPipMode) {
                             // pip 용 드래그만
                             var checkX = event.rawX + moveX
-
                             var checkY = event.rawY + moveY
 
                             parentView.animate()
@@ -101,6 +108,10 @@ class PlayerViewFragment : Fragment() {
                                 .y(checkY)
                                 .setDuration(0)
                                 .start()
+                            Log.i(
+                                "TEST",
+                                "ACTION_MOVE check:($checkX, $checkY) -> x[$moveCheckX], y[$moveCheckY]"
+                            )
                         } else {
                             // 드래그 가속도 측정
                             tracker.computeCurrentVelocity(1)
@@ -125,14 +136,19 @@ class PlayerViewFragment : Fragment() {
 
                         // 드래그 상태에 따라 위로 올릴지 내릴지 판단해줌
                         if (isPipMode) {
-//                            if (CHECK_DRAG_SPEED < velocity || parentView.y < (checkResumeY * 2)) {
-//                                Log.i("TEST", "ACTION_UP isPipMode:[$isPipMode] drag")
-//                                moveMax(parentView, v)
-//                            } else {
-//                                Log.i("TEST", "ACTION_UP isPipMode:[$isPipMode] 복귀")
-//                                moveMin(parentView, v)
-//                            }
-                            actionUpMove(parentView, v, parentView.x, parentView.y)
+                            // TODO 클릭 구현해야됨
+                            var checkX = event.rawX + moveX
+                            var checkY = event.rawY + moveY
+                            if (clickSensitivity > abs(checkX - moveCheckX) || clickSensitivity > abs(
+                                    checkY - moveCheckY
+                                )
+                            ) {
+                                // 클릭
+                                moveMax(parentView, v)
+                            } else {
+                                actionUpMove(parentView, v, parentView.x, parentView.y)
+                            }
+
                             Log.i(
                                 "TEST",
                                 "ACTION_UP pip Mode x,y:(${parentView.x}, ${parentView.y})"
@@ -152,6 +168,8 @@ class PlayerViewFragment : Fragment() {
                                 moveMax(parentView, v)
                             }
                         }
+
+
 
                         setPipState(isPipMode)
                         // 가속도 초기화
@@ -199,9 +217,12 @@ class PlayerViewFragment : Fragment() {
                 Log.i("TEST", "moveMin() move:($moveX, $moveY)")
 
                 // 줄어든 사이즈만큼 위치 조절 (비율로 줄어든 만큼 차이점을 계산) !! scale 하게되면 가운데로 줄어들어서 좌표값 계산을 반으로 나눠서 해야됨.
-                moveY += (topHeight - (topHeight / scaleSize))/ 2
-                moveX += (topWidth - (topWidth / scaleSize))/ 2
-                Log.i("TEST", "moveMin() move:($moveX, $moveY) - height:$topHeight -> ${(topHeight - (topHeight / scaleSize))/ 2}, width:$topWidth -> ${(topWidth - (topWidth / scaleSize))/ 2}")
+                moveY += (topHeight - (topHeight / scaleSize)) / 2
+                moveX += (topWidth - (topWidth / scaleSize)) / 2
+                Log.i(
+                    "TEST",
+                    "moveMin() move:($moveX, $moveY) - height:$topHeight -> ${(topHeight - (topHeight / scaleSize)) / 2}, width:$topWidth -> ${(topWidth - (topWidth / scaleSize)) / 2}"
+                )
 
                 parentView.animate()
                     .translationY(moveY)
@@ -227,8 +248,8 @@ class PlayerViewFragment : Fragment() {
         var margin = 0
 
         // 줄어든 사이즈만큼 위치 조절 (비율로 줄어든 만큼 차이점을 계산)
-        var scaleSizeX = (binding.flTop.width - (binding.flTop.width / scaleSize))/ 2
-        var scaleSizeY = (binding.flTop.height - (binding.flTop.height / scaleSize))/ 2
+        var scaleSizeX = (binding.flTop.width - (binding.flTop.width / scaleSize)) / 2
+        var scaleSizeY = (binding.flTop.height - (binding.flTop.height / scaleSize)) / 2
 
         // 선택한 이미지 정 가운데 좌표
         var width = (x + (view.width / 2))
@@ -243,14 +264,14 @@ class PlayerViewFragment : Fragment() {
         } else {
             (parent.width - view.width - margin).toFloat() + scaleSizeX
         }
-        Log.d("TEST", "actionMove x : if($width > ${(parent.width / 2)}) = $actionMoveX")
+        Log.d("TEST", "actionMove x : $actionMoveX")
 
         var actionMoveY: Float = if (height < (parent.height / 2) - scaleSizeY) {
             margin.toFloat() - scaleSizeY
         } else {
             (parent.height - view.height - margin).toFloat() + scaleSizeY
         }
-        Log.d("TEST", "actionMove y : if($height > ${(parent.height / 2)}) = $actionMoveY")
+        Log.d("TEST", "actionMove y : $actionMoveY")
 
         Log.d("TEST", "actionMove:[$actionMoveX, $actionMoveY], x,y:[$x, $y]")
         parent.animate()
