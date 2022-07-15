@@ -1,5 +1,6 @@
 package com.example.testlistpip2
 
+import android.animation.Animator
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
@@ -7,6 +8,8 @@ import android.view.MotionEvent
 import android.view.VelocityTracker
 import android.view.View
 import android.view.ViewGroup
+import androidx.dynamicanimation.animation.DynamicAnimation
+import androidx.dynamicanimation.animation.SpringAnimation
 import androidx.fragment.app.Fragment
 import com.example.testlistpip2.databinding.FragmentPlayerViewBinding
 import kotlin.math.abs
@@ -32,6 +35,7 @@ class PlayerViewFragment : Fragment() {
         }
         binding.btn2.setOnClickListener {
             Log.i("TEST", "CLICK 2")
+            onFinish()
         }
         binding.btn3.setOnClickListener {
             Log.i("TEST", "CLICK 3")
@@ -79,8 +83,10 @@ class PlayerViewFragment : Fragment() {
         var velocity = 0f
         binding.flTop.setOnTouchListener(object : View.OnTouchListener {
 
+            // 이동한 길이 값
             var moveCheckX = 0f
             var moveCheckY = 0f
+
             override fun onTouch(v: View, event: MotionEvent): Boolean {
 
                 var parentView: View = v.parent as View
@@ -136,19 +142,21 @@ class PlayerViewFragment : Fragment() {
 
                         // 드래그 상태에 따라 위로 올릴지 내릴지 판단해줌
                         if (isPipMode) {
-                            // TODO 클릭 구현해야됨
+                            // 마지막 터치 위치
                             var checkX = event.rawX + moveX
                             var checkY = event.rawY + moveY
-                            if (clickSensitivity > abs(checkX - moveCheckX) || clickSensitivity > abs(
-                                    checkY - moveCheckY
-                                )
+
+                            // 터치 오차범위 내에 있으면 클릭으로 인정
+                            if (clickSensitivity > abs(checkX - moveCheckX) ||
+                                clickSensitivity > abs(checkY - moveCheckY)
                             ) {
                                 // 클릭
                                 moveMax(parentView, v)
                             } else {
-                                actionUpMove(parentView, v, parentView.x, parentView.y)
+                                if (checkDragFinish(parentView, v)) {
+                                    actionUpMove(parentView, v)
+                                }
                             }
-
                             Log.i(
                                 "TEST",
                                 "ACTION_UP pip Mode x,y:(${parentView.x}, ${parentView.y})"
@@ -169,8 +177,6 @@ class PlayerViewFragment : Fragment() {
                             }
                         }
 
-
-
                         setPipState(isPipMode)
                         // 가속도 초기화
                         velocity = 0f
@@ -185,6 +191,7 @@ class PlayerViewFragment : Fragment() {
             fun moveMax(parentView: View, view: View) {
                 isPipMode = false
 
+                binding.flBottom.visibility = View.VISIBLE
                 binding.flBottom.alpha = 1f
                 parentView.animate()
                     .translationY(0f)
@@ -206,6 +213,7 @@ class PlayerViewFragment : Fragment() {
             fun moveMin(parentView: View, view: View) {
                 isPipMode = true
                 binding.flBottom.alpha = 0f
+                binding.flBottom.visibility = View.GONE
 
                 var topHeight = binding.flTop.height.toFloat()
                 var topWidth = binding.flTop.width.toFloat()
@@ -243,22 +251,25 @@ class PlayerViewFragment : Fragment() {
     /**
      * 4등분 화면으로 이동시켜주는 애니메이션 처리
      */
-    fun actionUpMove(parent: View, view: View, x: Float, y: Float) {
+    fun actionUpMove(parent: View, view: View) {
         // 마진값
         var margin = 0
+        var parentX = parent.x
+        var parentY = parent.y
 
         // 줄어든 사이즈만큼 위치 조절 (비율로 줄어든 만큼 차이점을 계산)
-        var scaleSizeX = (binding.flTop.width - (binding.flTop.width / scaleSize)) / 2
-        var scaleSizeY = (binding.flTop.height - (binding.flTop.height / scaleSize)) / 2
+        var scaleSizeX = (view.width - (view.width / scaleSize)) / 2
+        var scaleSizeY = (view.height - (view.height / scaleSize)) / 2
 
         // 선택한 이미지 정 가운데 좌표
-        var width = (x + (view.width / 2))
-        var height = (y + (view.height / 2))
+        var width = (parentX + (view.width / 2))
+        var height = (parentY + (view.height / 2))
 
         // 값 보정
         width -= scaleSizeX
         height -= scaleSizeY
 
+        // 왼쪽, 오른쪽 구분
         var actionMoveX: Float = if (width < (parent.width / 2) - scaleSizeX) {
             margin.toFloat() - scaleSizeX
         } else {
@@ -266,6 +277,7 @@ class PlayerViewFragment : Fragment() {
         }
         Log.d("TEST", "actionMove x : $actionMoveX")
 
+        // 위, 아래 구분
         var actionMoveY: Float = if (height < (parent.height / 2) - scaleSizeY) {
             margin.toFloat() - scaleSizeY
         } else {
@@ -273,12 +285,97 @@ class PlayerViewFragment : Fragment() {
         }
         Log.d("TEST", "actionMove y : $actionMoveY")
 
-        Log.d("TEST", "actionMove:[$actionMoveX, $actionMoveY], x,y:[$x, $y]")
-        parent.animate()
-            .translationX(actionMoveX)
-            .translationY(actionMoveY)
-            .setDuration(100)
-            .start()
+        Log.d("TEST", "actionMove:[$actionMoveX, $actionMoveY], x,y:[$parentX, $parentY]")
+//        parent.animate()
+//            .translationX(actionMoveX)
+//            .translationY(actionMoveY)
+//            .setDuration(100)
+//            .start()
+
+        SpringAnimation(
+            parent,
+            DynamicAnimation.TRANSLATION_X,
+            actionMoveX
+        ).start() to SpringAnimation(parent, DynamicAnimation.TRANSLATION_Y, actionMoveY).start()
+    }
+
+    /**
+     * 밖으로 드래그해서 종료시키는 메소드
+     */
+    fun checkDragFinish(parent: View, view: View): Boolean {
+        var isFinish = false
+
+        var parentX = parent.x
+        var parentY = parent.y
+
+        // 선택한 이미지 정 가운데 좌표
+        var viewPositionX = (parentX + (view.width / 2))
+        var veiwPositionY = (parentY + (view.height / 2))
+
+        // 줄어든 사이즈만큼 위치 조절 (비율로 줄어든 만큼 차이점을 계산)
+        var scaleSizeX = (view.width - (view.width / scaleSize)) / 2
+        var scaleSizeY = (view.height - (view.height / scaleSize)) / 2
+
+        // 값 보정 (정 좌표)
+        viewPositionX -= scaleSizeX
+        veiwPositionY -= scaleSizeY
+
+        // 화면 밖으로 넘어가면 종료되는 최소 사이즈
+        var checkOverSizeX = (view.width / scaleSize) / 2
+
+        var actionMoveX = 0f
+
+        if (viewPositionX < -checkOverSizeX) {
+            // 왼쪽
+            actionMoveX = -((parent.width / 2) + checkOverSizeX)
+            Log.d("TEST", "checkDragFinish() 왼쪽")
+        } else if (parent.width - checkOverSizeX < viewPositionX) {
+            // 오른쪽
+            actionMoveX = (parent.width.toFloat() + (view.width / scaleSize))
+            Log.d("TEST", "checkDragFinish() 오른쪽")
+        } else {
+            isFinish = true
+        }
+
+        if (!isFinish) {
+            parent.animate()
+                .translationX(actionMoveX)
+                .setDuration(500)
+                .setListener(object : Animator.AnimatorListener {
+                    override fun onAnimationStart(a: Animator) {
+                        Log.d("TEST", "onAnimationStart() a:[$a]")
+                    }
+
+                    override fun onAnimationEnd(a: Animator) {
+                        Log.d("TEST", "onAnimationEnd() a:[$a]")
+                        parent.animate().setListener(null) // onAnimationEnd() 호출이 두번되는것을 막음
+
+                        onFinish()
+                    }
+
+                    override fun onAnimationCancel(a: Animator) {
+                        Log.d("TEST", "onAnimationCancel() a:[$a.]")
+                    }
+
+                    override fun onAnimationRepeat(a: Animator) {
+                        Log.d("TEST", "onAnimationRepeat() a:[$a]")
+                    }
+                })
+                .start()
+        }
+
+        Log.d(
+            "TEST",
+            "checkDragFinish() : [$viewPositionX, $veiwPositionY] actionMoveX:[$actionMoveX] parentX:[$parentX]"
+        )
+        return isFinish
+    }
+
+    fun onFinish() {
+        activity?.supportFragmentManager?.beginTransaction().let {
+            it?.remove(this)
+            it?.commitNowAllowingStateLoss()
+        }
     }
 
     /**

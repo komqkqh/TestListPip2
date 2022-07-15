@@ -21,6 +21,14 @@ class MainActivity : AppCompatActivity() {
 
         setSupportActionBar(binding.toolbar)
 
+        showPlayerFragment()
+
+        binding.btnPlayerAdd.setOnClickListener {
+            showPlayerFragment()
+        }
+    }
+
+    private fun showPlayerFragment() {
         supportFragmentManager.commit {
             replace(
                 R.id.fcv_layout,
