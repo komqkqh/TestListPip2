@@ -96,8 +96,8 @@ class PlayerViewFragment : Fragment() {
                     MotionEvent.ACTION_DOWN -> {
                         Log.i("TEST", "ACTION_DOWN")
 //                        moveX = v.x - event.rawX
-                        moveY = parentView.y - event.rawY
-                        moveX = parentView.x - event.rawX
+                        moveY = v.y - event.rawY
+                        moveX = v.x - event.rawX
 
                         moveCheckX = event.rawX + moveX
                         moveCheckY = event.rawY + moveY
@@ -109,9 +109,9 @@ class PlayerViewFragment : Fragment() {
                             var checkX = event.rawX + moveX
                             var checkY = event.rawY + moveY
 
-                            parentView.animate()
-                                .x(checkX)
-                                .y(checkY)
+                            v.animate()
+                                .translationX(checkX)
+                                .translationY(checkY)
                                 .setDuration(0)
                                 .start()
                             Log.i(
@@ -131,8 +131,12 @@ class PlayerViewFragment : Fragment() {
                                 checkY = 0f
                             }
 
-                            parentView.animate()
-                                .y(checkY)
+                            v.animate()
+                                .translationY(checkY)
+                                .setDuration(0)
+                                .start()
+                            binding.flBottom.animate()
+                                .translationY(checkY)
                                 .setDuration(0)
                                 .start()
                             Log.i("TEST", "ACTION_MOVE velocity:[$velocity], checkY:[$checkY]")
@@ -151,9 +155,11 @@ class PlayerViewFragment : Fragment() {
                                 clickSensitivity > abs(checkY - moveCheckY)
                             ) {
                                 // 클릭
-                                moveMax(parentView, v)
+                                moveMax(v)
                             } else {
-                                if (checkDragFinish(parentView, v)) {
+                                // 밖으로 내보내는 드래그 체크
+                                if (!checkDragFinish(v)) {
+                                    // 4등분 화면 위치로 보내는 애니메이션
                                     actionUpMove(parentView, v)
                                 }
                             }
@@ -168,12 +174,12 @@ class PlayerViewFragment : Fragment() {
                                 "ACTION_UP 최고 가속도:[$velocity] y:[${parentView.y}], checkResumeY:[$checkResumeY]"
                             )
                             // 드래그 복귀, 내리기 결정
-                            if (CHECK_DRAG_SPEED < velocity || parentView.y > checkResumeY) {
+                            if (CHECK_DRAG_SPEED < velocity || v.y > checkResumeY) {
                                 Log.i("TEST", "ACTION_UP isPipMode:[$isPipMode] drag")
                                 moveMin(parentView, v)
                             } else {
                                 Log.i("TEST", "ACTION_UP isPipMode:[$isPipMode] 복귀")
-                                moveMax(parentView, v)
+                                moveMax(v)
                             }
                         }
 
@@ -188,12 +194,12 @@ class PlayerViewFragment : Fragment() {
             /**
              * 최대화
              */
-            fun moveMax(parentView: View, view: View) {
+            fun moveMax(view: View) {
                 isPipMode = false
 
                 binding.flBottom.visibility = View.VISIBLE
                 binding.flBottom.alpha = 1f
-                parentView.animate()
+                binding.flBottom.animate()
                     .translationY(0f)
                     .translationX(0f)
                     .setDuration(100)
@@ -201,6 +207,8 @@ class PlayerViewFragment : Fragment() {
 
                 // 사이즈 조절
                 view.animate()
+                    .translationY(0f)
+                    .translationX(0f)
                     .scaleX(1f)
                     .scaleY(1f)
                     .setDuration(100)
@@ -218,28 +226,22 @@ class PlayerViewFragment : Fragment() {
                 var topHeight = binding.flTop.height.toFloat()
                 var topWidth = binding.flTop.width.toFloat()
 
-                // 이동 (원래 사이즈만큼)
+//                // 이동 (원래 사이즈만큼)
                 moveY = parentView.height.toFloat() - topHeight
                 moveX = parentView.width.toFloat() - topWidth
-
-                Log.i("TEST", "moveMin() move:($moveX, $moveY)")
 
                 // 줄어든 사이즈만큼 위치 조절 (비율로 줄어든 만큼 차이점을 계산) !! scale 하게되면 가운데로 줄어들어서 좌표값 계산을 반으로 나눠서 해야됨.
                 moveY += (topHeight - (topHeight / scaleSize)) / 2
                 moveX += (topWidth - (topWidth / scaleSize)) / 2
-                Log.i(
-                    "TEST",
-                    "moveMin() move:($moveX, $moveY) - height:$topHeight -> ${(topHeight - (topHeight / scaleSize)) / 2}, width:$topWidth -> ${(topWidth - (topWidth / scaleSize)) / 2}"
-                )
-
-                parentView.animate()
-                    .translationY(moveY)
-                    .translationX(moveX)
-                    .setDuration(100)
-                    .start()
+//                Log.i(
+//                    "TEST",
+//                    "moveMin() move:($moveX, $moveY) - height:$topHeight -> ${(topHeight - (topHeight / scaleSize)) / 2}, width:$topWidth -> ${(topWidth - (topWidth / scaleSize)) / 2}"
+//                )
 
                 // 사이즈 조절
                 view.animate()
+                    .translationY(moveY)
+                    .translationX(moveX)
                     .scaleX(1 / scaleSize)
                     .scaleY(1 / scaleSize)
                     .setDuration(100)
@@ -254,71 +256,66 @@ class PlayerViewFragment : Fragment() {
     fun actionUpMove(parent: View, view: View) {
         // 마진값
         var margin = 0
-        var parentX = parent.x
-        var parentY = parent.y
+        var dragX = view.x
+        var dragY = view.y
 
-        // 줄어든 사이즈만큼 위치 조절 (비율로 줄어든 만큼 차이점을 계산)
+        // 원래 사이즈와 줄어든 사이즈의 거리 차이점
         var scaleSizeX = (view.width - (view.width / scaleSize)) / 2
         var scaleSizeY = (view.height - (view.height / scaleSize)) / 2
 
         // 선택한 이미지 정 가운데 좌표
-        var width = (parentX + (view.width / 2))
-        var height = (parentY + (view.height / 2))
+        var centerX = (dragX + (view.width / 2))
+        var centerY = (dragY + (view.height / 2))
 
         // 값 보정
-        width -= scaleSizeX
-        height -= scaleSizeY
+        centerX -= scaleSizeX
+        centerY -= scaleSizeY
 
         // 왼쪽, 오른쪽 구분
-        var actionMoveX: Float = if (width < (parent.width / 2) - scaleSizeX) {
+        var actionMoveX: Float = if (centerX < (parent.width / 2) - scaleSizeX) {
+            Log.d("TEST", "actionMove 왼쪽")
             margin.toFloat() - scaleSizeX
         } else {
-            (parent.width - view.width - margin).toFloat() + scaleSizeX
+            Log.d("TEST", "actionMove 오른쪽")
+            scaleSizeX - (margin).toFloat()
         }
         Log.d("TEST", "actionMove x : $actionMoveX")
 
         // 위, 아래 구분
-        var actionMoveY: Float = if (height < (parent.height / 2) - scaleSizeY) {
-            margin.toFloat() - scaleSizeY
+        var actionMoveY: Float = if (centerY < (parent.height / 2) - scaleSizeY) {
+            Log.d("TEST", "actionMove 위")
+            -scaleSizeY + margin.toFloat()
         } else {
-            (parent.height - view.height - margin).toFloat() + scaleSizeY
+            Log.d("TEST", "actionMove 아래")
+            (parent.height - view.height).toFloat() + scaleSizeY - margin
         }
         Log.d("TEST", "actionMove y : $actionMoveY")
 
-        Log.d("TEST", "actionMove:[$actionMoveX, $actionMoveY], x,y:[$parentX, $parentY]")
-//        parent.animate()
-//            .translationX(actionMoveX)
-//            .translationY(actionMoveY)
-//            .setDuration(100)
-//            .start()
+        Log.d("TEST", "c:[$actionMoveX, $actionMoveY], x,y:[$dragX, $dragY], scaleSize:[$scaleSizeX, $scaleSizeY]")
 
         SpringAnimation(
-            parent,
+            view,
             DynamicAnimation.TRANSLATION_X,
             actionMoveX
-        ).start() to SpringAnimation(parent, DynamicAnimation.TRANSLATION_Y, actionMoveY).start()
+        ).start() to SpringAnimation(view, DynamicAnimation.TRANSLATION_Y, actionMoveY).start()
     }
 
     /**
      * 밖으로 드래그해서 종료시키는 메소드
      */
-    fun checkDragFinish(parent: View, view: View): Boolean {
-        var isFinish = false
+    fun checkDragFinish(view: View): Boolean {
+        var isFinish = true
 
-        var parentX = parent.x
-        var parentY = parent.y
+        var moveX = view.x
 
         // 선택한 이미지 정 가운데 좌표
-        var viewPositionX = (parentX + (view.width / 2))
-        var veiwPositionY = (parentY + (view.height / 2))
+        var viewPositionX = (moveX + (view.width / 2))
 
         // 줄어든 사이즈만큼 위치 조절 (비율로 줄어든 만큼 차이점을 계산)
         var scaleSizeX = (view.width - (view.width / scaleSize)) / 2
-        var scaleSizeY = (view.height - (view.height / scaleSize)) / 2
 
         // 값 보정 (정 좌표)
         viewPositionX -= scaleSizeX
-        veiwPositionY -= scaleSizeY
 
         // 화면 밖으로 넘어가면 종료되는 최소 사이즈
         var checkOverSizeX = (view.width / scaleSize) / 2
@@ -327,18 +324,18 @@ class PlayerViewFragment : Fragment() {
 
         if (viewPositionX < -checkOverSizeX) {
             // 왼쪽
-            actionMoveX = -((parent.width / 2) + checkOverSizeX)
+            actionMoveX = -((view.width / 2) + checkOverSizeX)
             Log.d("TEST", "checkDragFinish() 왼쪽")
-        } else if (parent.width - checkOverSizeX < viewPositionX) {
+        } else if (view.width - checkOverSizeX < viewPositionX) {
             // 오른쪽
-            actionMoveX = (parent.width.toFloat() + (view.width / scaleSize))
+            actionMoveX = (view.width.toFloat())
             Log.d("TEST", "checkDragFinish() 오른쪽")
         } else {
-            isFinish = true
+            isFinish = false
         }
 
-        if (!isFinish) {
-            parent.animate()
+        if (isFinish) {
+            view.animate()
                 .translationX(actionMoveX)
                 .setDuration(500)
                 .setListener(object : Animator.AnimatorListener {
@@ -348,8 +345,7 @@ class PlayerViewFragment : Fragment() {
 
                     override fun onAnimationEnd(a: Animator) {
                         Log.d("TEST", "onAnimationEnd() a:[$a]")
-                        parent.animate().setListener(null) // onAnimationEnd() 호출이 두번되는것을 막음
-
+                        view.animate().setListener(null) // onAnimationEnd() 호출이 두번되는것을 막음
                         onFinish()
                     }
 
@@ -366,7 +362,7 @@ class PlayerViewFragment : Fragment() {
 
         Log.d(
             "TEST",
-            "checkDragFinish() : [$viewPositionX, $veiwPositionY] actionMoveX:[$actionMoveX] parentX:[$parentX]"
+            "checkDragFinish() : [$viewPositionX] actionMoveX:[$actionMoveX] moveX:[$moveX]"
         )
         return isFinish
     }
