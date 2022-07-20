@@ -9,37 +9,50 @@
         android:id="@+id/fl_top"
         android:layout_width="match_parent"
         android:layout_height="250dp"
-        android:background="@drawable/cat1"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
 
+        <!-- 플레이어 뷰 -->
         <FrameLayout
-            android:id="@+id/fl_controller"
+            android:id="@+id/fl_player_layout"
             android:layout_width="match_parent"
             android:layout_height="match_parent">
 
-            <Button
-                android:id="@+id/btn_1"
-                android:layout_width="100dp"
-                android:layout_height="50dp"
-                android:layout_gravity="left|center"
-                android:text="prev" />
+            <ImageView
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@drawable/cat1" />
 
-            <Button
-                android:id="@+id/btn_2"
-                android:layout_width="100dp"
-                android:layout_height="50dp"
-                android:layout_gravity="center"
-                android:text="=" />
+            <!-- 컨트롤러 -->
+            <FrameLayout
+                android:id="@+id/fl_controller"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent">
 
-            <Button
-                android:id="@+id/btn_3"
-                android:layout_width="100dp"
-                android:layout_height="50dp"
-                android:layout_gravity="right|center"
-                android:text="next" />
+                <Button
+                    android:id="@+id/btn_1"
+                    android:layout_width="100dp"
+                    android:layout_height="50dp"
+                    android:layout_gravity="left|center"
+                    android:text="prev" />
+
+                <Button
+                    android:id="@+id/btn_2"
+                    android:layout_width="100dp"
+                    android:layout_height="50dp"
+                    android:layout_gravity="center"
+                    android:text="=" />
+
+                <Button
+                    android:id="@+id/btn_3"
+                    android:layout_width="100dp"
+                    android:layout_height="50dp"
+                    android:layout_gravity="right|center"
+                    android:text="next" />
+            </FrameLayout>
         </FrameLayout>
+
     </FrameLayout>
 
     <FrameLayout

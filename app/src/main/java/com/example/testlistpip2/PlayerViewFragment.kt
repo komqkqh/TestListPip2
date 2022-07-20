@@ -1,5 +1,6 @@
 package com.example.testlistpip2
 
+import android.content.res.Configuration
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
@@ -24,7 +25,7 @@ class PlayerViewFragment : Fragment(), IDragListener {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        binding.clPlayerLayout.init(binding.flTop, binding.flBottom, this)
+        activity?.let { binding.clPlayerLayout.init(it, binding.flTop, binding.flBottom, this) }
         binding.btn1.setOnClickListener {
             Log.i("TEST", "CLICK 1")
         }
@@ -36,6 +37,8 @@ class PlayerViewFragment : Fragment(), IDragListener {
             Log.i("TEST", "CLICK 3")
             binding.clPlayerLayout.setMinimized()
         }
+
+        binding.clPlayerLayout.moveMax()
     }
 
     override fun onFinish() {
@@ -73,4 +76,10 @@ class PlayerViewFragment : Fragment(), IDragListener {
             binding.flController.visibility = View.VISIBLE
         }
     }
+
+//    override fun onConfigurationChanged(newConfig: Configuration) {
+//        super.onConfigurationChanged(newConfig)
+//
+//        Log.d("TEST", "fragment onConfigurationChanged newConfig:[${newConfig.orientation}]")
+//    }
 }

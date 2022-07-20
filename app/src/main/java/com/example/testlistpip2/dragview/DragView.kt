@@ -1,7 +1,11 @@
 package com.example.testlistpip2.dragview
 
 import android.animation.Animator
+import android.app.Activity
 import android.content.Context
+import android.content.res.Configuration
+import android.graphics.Point
+import android.graphics.Rect
 import android.util.AttributeSet
 import android.util.Log
 import android.view.MotionEvent
@@ -27,6 +31,28 @@ class DragView @JvmOverloads constructor(
     var moveY = 0f
 
     /**
+     * 가로 축소 사이즈
+     * 가로폭 단말 짧은 쪽의 50%
+     */
+    private var scaleSize = 0.5f
+
+    /**
+     * 가로 세로마다 스케일 비율이 달라짐
+     */
+    private var scalePipX = 0f
+    private var scalePipY = 0f
+
+    // 플레이어 세로버전 높이
+    private val playerPortHeight = 250f // dp
+
+    // 계산용 pip 변수
+    private var pipMinWidth = 0
+    private var pipMinHeight = 0
+
+    private var windowWidth = 0
+    private var windowHeight = 0
+
+    /**
      * 가속도 구하는녀석
      * https://injunech.tistory.com/154
      */
@@ -42,25 +68,59 @@ class DragView @JvmOverloads constructor(
      */
     private var isPipMode = false
 
-    /**
-     * 축소 사이즈
-     */
-    private val scaleSize = 2f
+    private var pipPosition = PIP_RIGHT_BOTTOM
 
     /**
      * 클릭 민감도
      */
     private val clickSensitivity = 5f
 
-    fun init(top: ViewGroup, bottom: ViewGroup, listener: IDragListener) {
+    private lateinit var activity: Activity
+
+    private var orientation = 0
+
+    fun init(activity: Activity, top: ViewGroup, bottom: ViewGroup, listener: IDragListener) {
+        this.activity = activity
         topView = top
         bottomView = bottom
         dragListener = listener
 
-        onTouch()
+        getWindowSize()
+        setOnTouch()
+        setOrientation(resources.configuration.orientation)
+        setTopLayout()
     }
 
-    private fun onTouch() {
+    private fun setOrientation(orientation: Int) {
+        this.orientation = orientation
+    }
+
+    /**
+     * 가로 세로에 대한 비율을 재 조절해줌
+     */
+    private fun setTopLayout() {
+
+        if (windowWidth < windowHeight) {
+            topView.layoutParams.width = windowWidth
+            pipMinWidth = windowWidth / 2
+        } else {
+            topView.layoutParams.width = windowHeight
+            pipMinWidth = windowHeight / 2
+        }
+
+        scaleSize = (pipMinWidth.toFloat() / windowWidth.toFloat())
+
+//        pipMinHeight = topView.height.toFloat()
+        pipMinHeight = dpToPx(context, playerPortHeight) / 2
+        setScaleY()
+
+        Log.d(
+            "TEST",
+            "setTopLayout() display window($windowWidth, $windowHeight), pipMinWidth:[$pipMinWidth], scaleSize:[$scaleSize], scaleY:[$scalePipY], pipMinHeight:[$pipMinHeight]"
+        )
+    }
+
+    private fun setOnTouch() {
         tracker = VelocityTracker.obtain()
         // 속도 측정
         var velocity = 0f
@@ -85,7 +145,7 @@ class DragView @JvmOverloads constructor(
                         moveCheckX = event.rawX + moveX
                         moveCheckY = event.rawY + moveY
 
-                        if(isPipMode) {
+                        if (isPipMode) {
                             dragListener.onPipDragingStart()
                         } else {
                             dragListener.onDragingStart()
@@ -102,10 +162,10 @@ class DragView @JvmOverloads constructor(
                                 .translationY(checkY)
                                 .setDuration(0)
                                 .start()
-                            Log.i(
-                                "TEST",
-                                "ACTION_MOVE check:($checkX, $checkY) -> x[$moveCheckX], y[$moveCheckY]"
-                            )
+//                            Log.i(
+//                                "TEST",
+//                                "ACTION_MOVE check:($checkX, $checkY) -> x[$moveCheckX], y[$moveCheckY]"
+//                            )
                         } else {
                             // 드래그 가속도 측정
                             tracker.computeCurrentVelocity(1)
@@ -128,7 +188,7 @@ class DragView @JvmOverloads constructor(
                                 .translationY(checkY)
                                 .setDuration(0)
                                 .start()
-                            Log.i("TEST", "ACTION_MOVE velocity:[$velocity], checkY:[$checkY]")
+//                            Log.i("TEST", "ACTION_MOVE velocity:[$velocity], checkY:[$checkY]")
                         }
                     }
                     MotionEvent.ACTION_UP -> {
@@ -144,7 +204,7 @@ class DragView @JvmOverloads constructor(
                                 clickSensitivity > abs(checkY - moveCheckY)
                             ) {
                                 // 클릭
-                                moveMax(v)
+                                moveMax()
                             } else {
                                 // 밖으로 내보내는 드래그 체크
                                 if (!checkDragFinish(v)) {
@@ -168,7 +228,7 @@ class DragView @JvmOverloads constructor(
                                 moveMin(parentView, v)
                             } else {
                                 Log.i("TEST", "ACTION_UP isPipMode:[$isPipMode] 복귀")
-                                moveMax(v)
+                                moveMax()
                             }
                         }
                         // 가속도 초기화
@@ -183,62 +243,120 @@ class DragView @JvmOverloads constructor(
     /**
      * 최대화
      */
-    fun moveMax(view: View) {
-        isPipMode = false
+    fun moveMax() {
+        if (orientation == Configuration.ORIENTATION_LANDSCAPE) {
+            moveMaxLand(topView)
+        } else {
+            moveMaxPort(topView)
+        }
+    }
 
-        bottomView.visibility = View.VISIBLE
-        bottomView.alpha = 1f
-        bottomView.animate()
-            .translationY(0f)
-            .translationX(0f)
-            .setDuration(100)
-            .start()
+    fun moveMaxPort(view: View) {
+        post {
+            Log.d("TEST", "moveMaxport()")
+            isPipMode = false
 
-        // 사이즈 조절
-        view.animate()
-            .translationY(0f)
-            .translationX(0f)
-            .scaleX(1f)
-            .scaleY(1f)
-            .setDuration(100)
-            .start()
+            bottomView.visibility = View.VISIBLE
+            bottomView.alpha = 1f
+            bottomView.animate()
+                .translationY(0f)
+                .translationX(0f)
+                .setDuration(100)
+                .start()
 
-        dragListener.onMaximized()
+            val params: ViewGroup.LayoutParams = view.layoutParams
+            params.width = ViewGroup.LayoutParams.MATCH_PARENT
+            params.height = dpToPx(context, playerPortHeight) // 세로 모드 높이 수정
+            view.layoutParams = params
+            view.requestLayout()
+
+            // 사이즈 조절
+            view.animate()
+                .translationY(0f)
+                .translationX(0f)
+                .scaleX(1f)
+                .scaleY(1f)
+                .setDuration(100)
+                .start()
+
+            dragListener.onMaximized()
+        }
+    }
+
+    fun moveMaxLand(view: View) {
+        post {
+            Log.d("TEST", "moveMaxLand()")
+            isPipMode = false
+
+            bottomView.visibility = View.GONE
+            bottomView.alpha = 0f
+
+            val params: ViewGroup.LayoutParams = view.layoutParams
+            params.width = ViewGroup.LayoutParams.MATCH_PARENT
+            params.height = ViewGroup.LayoutParams.MATCH_PARENT
+            view.layoutParams = params
+            view.requestLayout()
+
+            // 사이즈 조절
+            view.animate()
+                .translationY(0f)
+                .translationX(0f)
+                .scaleX(1f)
+                .scaleY(1f)
+                .setDuration(100)
+                .start()
+
+            dragListener.onMaximized()
+        }
     }
 
     /**
      * 최소화
      */
     fun moveMin(parentView: View, view: View) {
-        isPipMode = true
-        bottomView.alpha = 0f
-        bottomView.visibility = View.GONE
+        post {
+            Log.d("TEST", "moveMin() 최소화")
+            isPipMode = true
+            bottomView.alpha = 0f
+            bottomView.visibility = View.GONE
 
-        var topHeight = topView.height.toFloat()
-        var topWidth = topView.width.toFloat()
-
+            var topWidth = topView.width.toFloat()
+            var topHeight = topView.height.toFloat()
+//                dpToPx(context, playerPortHeight)
 //                // 이동 (원래 사이즈만큼)
-        moveY = parentView.height.toFloat() - topHeight
-        moveX = parentView.width.toFloat() - topWidth
+            moveX = parentView.width.toFloat() - topWidth
+            moveY = parentView.height.toFloat() - topHeight
+            Log.i(
+                "TEST",
+                "moveMin() move:($moveX, $moveY)"
+            )
+            // 줄어든 사이즈만큼 위치 조절 (비율로 줄어든 만큼 차이점을 계산) !! scale 하게되면 가운데로 줄어들어서 좌표값 계산을 반으로 나눠서 해야됨.
+            moveX += (topWidth - (topWidth * scaleSize)) / 2
+            moveY += (topHeight - (topHeight * scalePipY)) / 2
 
-        // 줄어든 사이즈만큼 위치 조절 (비율로 줄어든 만큼 차이점을 계산) !! scale 하게되면 가운데로 줄어들어서 좌표값 계산을 반으로 나눠서 해야됨.
-        moveY += (topHeight - (topHeight / scaleSize)) / 2
-        moveX += (topWidth - (topWidth / scaleSize)) / 2
-//                Log.i(
-//                    "TEST",
-//                    "moveMin() move:($moveX, $moveY) - height:$topHeight -> ${(topHeight - (topHeight / scaleSize)) / 2}, width:$topWidth -> ${(topWidth - (topWidth / scaleSize)) / 2}"
-//                )
+            // Y scale 사이즈 따로
+            setScaleY()
 
-        // 사이즈 조절
-        view.animate()
-            .translationY(moveY)
-            .translationX(moveX)
-            .scaleX(1 / scaleSize)
-            .scaleY(1 / scaleSize)
-            .setDuration(100)
-            .start()
+            Log.i(
+                "TEST",
+                "moveMin() move:($moveX, $moveY) - height:$topHeight -> ${(topHeight - (topHeight * scaleSize)) / 2}, width:$topWidth -> ${(topWidth - (topWidth * scaleSize)) / 2}, scaleSize:[$scaleSize], scaleY:[$scalePipY]"
+            )
+            Log.i(
+                "TEST",
+                "moveMin() bottomView height:[${bottomView.height}]"
+            )
 
-        dragListener.onMinimized()
+            // 사이즈 조절
+            view.animate()
+                .translationY(moveY)
+                .translationX(moveX)
+                .scaleX(scaleSize)
+                .scaleY(scalePipY)
+                .setDuration(100)
+                .start()
+
+            dragListener.onMinimized()
+        }
     }
 
     /**
@@ -251,8 +369,8 @@ class DragView @JvmOverloads constructor(
         var dragY = view.y
 
         // 원래 사이즈와 줄어든 사이즈의 거리 차이점
-        var scaleSizeX = (view.width - (view.width / scaleSize)) / 2
-        var scaleSizeY = (view.height - (view.height / scaleSize)) / 2
+        var scaleSizeX = (view.width - (view.width * scaleSize)) / 2
+        var scaleSizeY = (view.height - (view.height * scalePipY)) / 2
 
         // 선택한 이미지 정 가운데 좌표
         var centerX = (dragX + (view.width / 2))
@@ -262,12 +380,16 @@ class DragView @JvmOverloads constructor(
         centerX -= scaleSizeX
         centerY -= scaleSizeY
 
+        var left = false
+
         // 왼쪽, 오른쪽 구분
         var actionMoveX: Float = if (centerX < (parent.width / 2) - scaleSizeX) {
             Log.d("TEST", "actionMove 왼쪽")
+            left = true
             margin.toFloat() - scaleSizeX
         } else {
             Log.d("TEST", "actionMove 오른쪽")
+            left = false
             scaleSizeX - (margin).toFloat()
         }
         Log.d("TEST", "actionMove x : $actionMoveX")
@@ -275,9 +397,19 @@ class DragView @JvmOverloads constructor(
         // 위, 아래 구분
         var actionMoveY: Float = if (centerY < (parent.height / 2) - scaleSizeY) {
             Log.d("TEST", "actionMove 위")
+            if (left) {
+                pipPosition = PIP_LEFT_TOP
+            } else {
+                pipPosition = PIP_RIGHT_TOP
+            }
             -scaleSizeY + margin.toFloat()
         } else {
             Log.d("TEST", "actionMove 아래")
+            if (left) {
+                pipPosition = PIP_LEFT_BOTTOM
+            } else {
+                pipPosition = PIP_RIGHT_BOTTOM
+            }
             (parent.height - view.height).toFloat() + scaleSizeY - margin
         }
         Log.d("TEST", "actionMove y : $actionMoveY")
@@ -305,25 +437,27 @@ class DragView @JvmOverloads constructor(
         // 선택한 이미지 정 가운데 좌표
         var viewPositionX = (moveX + (view.width / 2))
 
-        // 줄어든 사이즈만큼 위치 조절 (비율로 줄어든 만큼 차이점을 계산)
-        var scaleSizeX = (view.width - (view.width / scaleSize)) / 2
-
-        // 값 보정 (정 좌표)
-        viewPositionX -= scaleSizeX
-
-        // 화면 밖으로 넘어가면 종료되는 최소 사이즈
-        var checkOverSizeX = (view.width / scaleSize) / 2
+        Log.d(
+            "TEST",
+            "checkDragFinish() viewPositionX : $viewPositionX = ($moveX + (${view.width} / 2))"
+        )
 
         var actionMoveX = 0f
 
-        if (viewPositionX < -checkOverSizeX) {
+        if (viewPositionX < 0) {
             // 왼쪽
-            actionMoveX = -((view.width / 2) + checkOverSizeX)
-            Log.d("TEST", "checkDragFinish() 왼쪽")
-        } else if (view.width - checkOverSizeX < viewPositionX) {
+            actionMoveX = -(view.width - ((view.width / 2) - ((view.width * scaleSize) / 2)))
+            Log.d(
+                "TEST",
+                "checkDragFinish() 왼쪽 viewPositionX:[$viewPositionX], actionMoveX:[$actionMoveX]"
+            )
+        } else if (view.width < viewPositionX) {
             // 오른쪽
-            actionMoveX = (view.width.toFloat())
-            Log.d("TEST", "checkDragFinish() 오른쪽")
+            actionMoveX = view.width - ((view.width / 2) - ((view.width * scaleSize) / 2))
+            Log.d(
+                "TEST",
+                "checkDragFinish() 오른쪽 viewPositionX:[$viewPositionX], actionMoveX:[$actionMoveX]"
+            )
         } else {
             isFinish = false
         }
@@ -331,24 +465,24 @@ class DragView @JvmOverloads constructor(
         if (isFinish) {
             view.animate()
                 .translationX(actionMoveX)
-                .setDuration(500)
+                .setDuration(1000)
                 .setListener(object : Animator.AnimatorListener {
-                    override fun onAnimationStart(a: Animator) {
-                        Log.d("TEST", "onAnimationStart() a:[$a]")
+
+                    override fun onAnimationStart(p0: Animator?) {
+                        Log.d("TEST", "onAnimationStart()")
                     }
 
                     override fun onAnimationEnd(a: Animator) {
-                        Log.d("TEST", "onAnimationEnd() a:[$a]")
-                        view.animate().setListener(null) // onAnimationEnd() 호출이 두번되는것을 막음
-                        dragListener.onFinish()
+                        Log.d("TEST", "onAnimationEnd()}")
+                        // TODO End 리스너가 두번탄다..
                     }
 
-                    override fun onAnimationCancel(a: Animator) {
-                        Log.d("TEST", "onAnimationCancel() a:[$a.]")
+                    override fun onAnimationCancel(p0: Animator?) {
+                        Log.d("TEST", "onAnimationCancel()")
                     }
 
-                    override fun onAnimationRepeat(a: Animator) {
-                        Log.d("TEST", "onAnimationRepeat() a:[$a]")
+                    override fun onAnimationRepeat(p0: Animator?) {
+                        Log.d("TEST", "onAnimationRepeat()")
                     }
                 })
                 .start()
@@ -372,7 +506,7 @@ class DragView @JvmOverloads constructor(
      * 최대화 시키기
      */
     fun setMaximized() {
-        moveMax(topView)
+        moveMax()
     }
 
     /**
@@ -380,5 +514,81 @@ class DragView @JvmOverloads constructor(
      */
     fun isMinimized(): Boolean {
         return isPipMode
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        Log.d(
+            "TEST",
+            "onConfigurationChanged newConfig:[${newConfig.orientation}], isPipMode:[$isPipMode]"
+        )
+        setOrientation(newConfig.orientation)
+        setTopLayout()
+
+        if (isPipMode) {
+            setMinimized()
+        } else {
+            setMaximized()
+        }
+    }
+
+    fun dpToPx(context: Context, dp: Float): Int {
+        // Took from http://stackoverflow.com/questions/8309354/formula-px-to-dp-dp-to-px-android
+        val scale = context.resources.displayMetrics.density
+        return (dp * scale + 0.5f).toInt()
+    }
+
+    fun getStatusBarHeight(context: Context): Int {
+        val resourceId = context.resources.getIdentifier("status_bar_height", "dimen", "android")
+        var statusBarHeight = 0
+        if (resourceId != 0) {
+            statusBarHeight = context.resources.getDimensionPixelSize(resourceId)
+        } else {
+            if (context is Activity) {
+                val rect = Rect()
+                context.window.decorView.getWindowVisibleDisplayFrame(rect)
+                statusBarHeight = if (rect.top > 0) rect.top else 0
+            }
+        }
+        return statusBarHeight
+    }
+
+    private fun getWindowSize() {
+        val size = Point()
+        activity.windowManager.defaultDisplay.getRealSize(size)
+        windowWidth = size.x
+        windowHeight = size.y
+    }
+
+    /**
+     * 가로에서 높이 축소를 위해 사이즈를 변경함
+     */
+    private fun setScaleY() {
+        if (orientation == Configuration.ORIENTATION_LANDSCAPE) {
+            scalePipY = (
+                (dpToPx(context, playerPortHeight) / 2).toFloat() /
+                    (windowHeight - getStatusBarHeight(context)).toFloat()
+                )
+            Log.d(
+                "TEST",
+                "scalePipY() $scalePipY = ${
+                (
+                    dpToPx(
+                        context,
+                        playerPortHeight
+                    ) / 2
+                    )
+                } / ($windowHeight - ${getStatusBarHeight(context)})"
+            )
+        } else {
+            scalePipY = scaleSize
+        }
+    }
+
+    companion object {
+        private const val PIP_LEFT_TOP = 0
+        private const val PIP_RIGHT_TOP = 1
+        private const val PIP_LEFT_BOTTOM = 2
+        private const val PIP_RIGHT_BOTTOM = 3
     }
 }
