@@ -251,6 +251,9 @@ class DragView @JvmOverloads constructor(
         }
     }
 
+    /**
+     * 세로형태 최대화
+     */
     fun moveMaxPort(view: View) {
         post {
             Log.d("TEST", "moveMaxport()")
@@ -283,6 +286,9 @@ class DragView @JvmOverloads constructor(
         }
     }
 
+    /**
+     * 가로형태 최대화
+     */
     fun moveMaxLand(view: View) {
         post {
             Log.d("TEST", "moveMaxLand()")
@@ -463,29 +469,32 @@ class DragView @JvmOverloads constructor(
         }
 
         if (isFinish) {
-            view.animate()
-                .translationX(actionMoveX)
-                .setDuration(1000)
-                .setListener(object : Animator.AnimatorListener {
+            // https://stackoverflow.com/questions/53612269/android-onanimationstart-and-onanimationend-are-getting-executed-twice-for-cust
+            view.post {
+                view.animate()
+                    .setListener(object : Animator.AnimatorListener {
 
-                    override fun onAnimationStart(p0: Animator?) {
-                        Log.d("TEST", "onAnimationStart()")
-                    }
+                        override fun onAnimationStart(p0: Animator?) {
+                            Log.d("TEST", "onAnimationStart() $this")
+                        }
 
-                    override fun onAnimationEnd(a: Animator) {
-                        Log.d("TEST", "onAnimationEnd()}")
-                        // TODO End 리스너가 두번탄다..
-                    }
+                        override fun onAnimationEnd(a: Animator) {
+                            Log.d("TEST", "onAnimationEnd() $this")
+                            dragListener.onFinish()
+                        }
 
-                    override fun onAnimationCancel(p0: Animator?) {
-                        Log.d("TEST", "onAnimationCancel()")
-                    }
+                        override fun onAnimationCancel(p0: Animator?) {
+                            Log.d("TEST", "onAnimationCancel()")
+                        }
 
-                    override fun onAnimationRepeat(p0: Animator?) {
-                        Log.d("TEST", "onAnimationRepeat()")
-                    }
-                })
-                .start()
+                        override fun onAnimationRepeat(p0: Animator?) {
+                            Log.d("TEST", "onAnimationRepeat()")
+                        }
+                    })
+                    .translationX(actionMoveX)
+                    .setDuration(500)
+                    .start()
+            }
         }
 
         Log.d(
