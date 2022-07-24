@@ -1,6 +1,5 @@
 package com.example.testlistpip2
 
-import android.content.res.Configuration
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
@@ -38,7 +37,7 @@ class PlayerViewFragment : Fragment(), IDragListener {
             binding.clPlayerLayout.setMinimized()
         }
 
-        binding.clPlayerLayout.moveMax()
+        binding.clPlayerLayout.moveMaximized()
     }
 
     override fun onFinish() {
