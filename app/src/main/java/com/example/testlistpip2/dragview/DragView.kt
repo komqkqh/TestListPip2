@@ -34,7 +34,7 @@ class DragView @JvmOverloads constructor(
      * 가로 축소 사이즈
      * 가로폭 단말 짧은 쪽의 50%
      */
-    private var scaleSize = 0.5f
+    private var scaleSize = PIP_SCALE_SIZE
 
     /**
      * 가로 세로마다 스케일 비율이 달라짐
@@ -45,12 +45,10 @@ class DragView @JvmOverloads constructor(
     // 플레이어 세로버전 높이
     private val playerPortHeight = 250f // dp
 
-    // 계산용 pip 변수
-    private var pipMinWidth = 0
-    private var pipMinHeight = 0
-
     private var windowWidth = 0
     private var windowHeight = 0
+
+    private val margin = 0
 
     /**
      * 가속도 구하는녀석
@@ -100,33 +98,29 @@ class DragView @JvmOverloads constructor(
      * 가로 세로에 대한 비율을 재 조절해줌
      */
     private fun setTopLayout() {
-
-        setScaleSize()
-        setScaleY()
-
-        Log.d(
-            TAG,
-            "setTopLayout() display window($windowWidth, $windowHeight), pipMinWidth:[$pipMinWidth], scaleSize:[$scaleSize], scaleY:[$scalePipY], pipMinHeight:[$pipMinHeight]"
-        )
+        setScaleSize() // scale x
+        setScaleY() // scale y
     }
 
     /**
      * Scale Size 를 가로 세로 판단해서 정해주기
      */
     private fun setScaleSize() {
-        if (windowWidth < windowHeight) {
-            pipMinWidth = windowWidth / 2
-        } else {
-            pipMinWidth = windowHeight / 2
+        post {
+            // 계산용 pip 변수
+            var pipMinWidth = if (windowWidth < windowHeight) {
+                (windowWidth * PIP_SCALE_SIZE).toInt()
+            } else {
+                (windowHeight * PIP_SCALE_SIZE).toInt()
+            }
+
+            scaleSize = pipMinWidth.toFloat() / (width.toFloat())
+
+            Log.i(
+                TAG,
+                "setScaleSize() scaleSize:[$scaleSize], parentView($width, $height), window($windowWidth, $windowHeight), pipMinWidth:[$pipMinWidth], minWidth:[${(width) * scaleSize}]"
+            )
         }
-        pipMinHeight = dpToPx(context, playerPortHeight) / 2
-
-        scaleSize = (pipMinWidth.toFloat() / windowWidth.toFloat())
-
-        Log.i(
-            TAG,
-            "setScaleSize() scaleSize:[$scaleSize], window($windowWidth, $windowHeight)"
-        )
     }
 
     private fun setOnTouch() {
@@ -307,10 +301,10 @@ class DragView @JvmOverloads constructor(
      * 최소화
      */
     fun moveMinimized(parentView: View, view: View) {
+        setTopViewLayoutParams()
+
         post {
             Log.d(TAG, "moveMin() 최소화")
-//            setScaleSize()
-            setTopViewLayoutParams()
 
             isPipMode = true
             bottomView.alpha = 0f
@@ -332,17 +326,20 @@ class DragView @JvmOverloads constructor(
             moveY += (topHeight - (topHeight * scalePipY)) / 2
 
             // Y scale 사이즈 따로
-            setScaleY()
+//            setScaleY()
 
             Log.i(
                 TAG,
-                "moveMin() move:($moveX, $moveY) - height:$topHeight -> ${(topHeight - (topHeight * scaleSize)) / 2}, width:$topWidth -> ${(topWidth - (topWidth * scaleSize)) / 2}, scaleSize:[$scaleSize], scaleY:[$scalePipY]"
+                "moveMin() move:($moveX, $moveY) - height:$topHeight -> ${(topHeight - (topHeight * scalePipY)) / 2}, width:$topWidth -> ${(topWidth - (topWidth * scaleSize)) / 2}, scaleSize:[$scaleSize], scaleY:[$scalePipY]"
             )
             Log.i(
                 TAG,
                 "moveMin() bottomView height:[${bottomView.height}]"
             )
-
+            Log.i(
+                TAG,
+                "moveMin() pip size (${topWidth * scaleSize}, ${topHeight * scalePipY})"
+            )
             // 사이즈 조절
             view.animate()
                 .x(moveX)
@@ -361,13 +358,12 @@ class DragView @JvmOverloads constructor(
      */
     fun actionUpMove(parent: View, view: View) {
         // 마진값
-        var margin = 0
         var dragX = view.x
         var dragY = view.y
 
         // 원래 사이즈와 줄어든 사이즈의 거리 차이점
-        var scaleSizeX = (view.width - (view.width * scaleSize)) / 2
-        var scaleSizeY = (view.height - (view.height * scalePipY)) / 2
+        var scaleSizeX = getScaleSizeX(view)
+        var scaleSizeY = getScaleSizeY(view)
 
         // 선택한 이미지 정 가운데 좌표
         var centerX = (dragX + (view.width / 2))
@@ -421,6 +417,57 @@ class DragView @JvmOverloads constructor(
             DynamicAnimation.TRANSLATION_X,
             actionMoveX
         ).start() to SpringAnimation(view, DynamicAnimation.TRANSLATION_Y, actionMoveY).start()
+    }
+
+    /**
+     * 코너 위치로 이동
+     */
+    fun setPipCorner() {
+        post {
+            // 원래 사이즈와 줄어든 사이즈의 거리 차이점
+            var scaleSizeX = getScaleSizeX(topView)
+            var scaleSizeY = getScaleSizeY(topView)
+
+            var actionMoveX = 0f
+            var actionMoveY = 0f
+
+            when (pipPosition) {
+                PIP_LEFT_TOP -> {
+                    actionMoveX = margin.toFloat() - scaleSizeX
+                    actionMoveY = -scaleSizeY + margin.toFloat()
+                }
+                PIP_RIGHT_TOP -> {
+                    actionMoveX = scaleSizeX - (margin).toFloat()
+                    actionMoveY = -scaleSizeY + margin.toFloat()
+                }
+                PIP_LEFT_BOTTOM -> {
+                    actionMoveX = margin.toFloat() - scaleSizeX
+                    actionMoveY = (height - topView.height).toFloat() + scaleSizeY - margin
+                }
+                PIP_RIGHT_BOTTOM -> {
+                    actionMoveX = scaleSizeX - (margin).toFloat()
+                    actionMoveY = (height - topView.height).toFloat() + scaleSizeY - margin
+                }
+            }
+
+            SpringAnimation(
+                topView,
+                DynamicAnimation.TRANSLATION_X,
+                actionMoveX
+            ).start() to SpringAnimation(
+                topView,
+                DynamicAnimation.TRANSLATION_Y,
+                actionMoveY
+            ).start()
+        }
+    }
+
+    fun getScaleSizeX(view: View): Float {
+        return (view.width - (view.width * scaleSize)) / 2
+    }
+
+    fun getScaleSizeY(view: View): Float {
+        return (view.height - (view.height * scalePipY)) / 2
     }
 
     /**
@@ -528,6 +575,7 @@ class DragView @JvmOverloads constructor(
 
         if (isPipMode) {
             setMinimized()
+            setPipCorner()
         } else {
             setMaximized()
         }
@@ -554,6 +602,9 @@ class DragView @JvmOverloads constructor(
         return statusBarHeight
     }
 
+    /**
+     * 윈도우 실제 사이즈 측정
+     */
     private fun getWindowSize() {
         val size = Point()
         activity.windowManager.defaultDisplay.getRealSize(size)
@@ -566,24 +617,21 @@ class DragView @JvmOverloads constructor(
      * 가로에서 높이 축소를 위해 사이즈를 변경함
      */
     private fun setScaleY() {
-        if (orientation == Configuration.ORIENTATION_LANDSCAPE) {
-            scalePipY = (
-                (dpToPx(context, playerPortHeight) / 2).toFloat() /
-                    (windowHeight - getStatusBarHeight(context)).toFloat()
-                )
-            Log.d(
-                TAG,
-                "scalePipY() $scalePipY = ${
-                (
-                    dpToPx(
-                        context,
-                        playerPortHeight
-                    ) / 2
+        post {
+            if (orientation == Configuration.ORIENTATION_LANDSCAPE) {
+                scalePipY = (
+                    (dpToPx(context, playerPortHeight) / 2).toFloat() /
+                        height
                     )
-                } / ($windowHeight - ${getStatusBarHeight(context)})"
-            )
-        } else {
-            scalePipY = scaleSize
+                Log.d(
+                    TAG,
+                    "scalePipY() $scalePipY = ${(dpToPx(context, playerPortHeight) / 2)} " +
+                        "/ ($windowHeight - ${getStatusBarHeight(context)})"
+                )
+            } else {
+                scalePipY = scaleSize
+            }
+            Log.i(TAG, "setScaleY() scalePipY:[$scalePipY]")
         }
     }
 
@@ -593,5 +641,6 @@ class DragView @JvmOverloads constructor(
         private const val PIP_RIGHT_TOP = 1
         private const val PIP_LEFT_BOTTOM = 2
         private const val PIP_RIGHT_BOTTOM = 3
+        private const val PIP_SCALE_SIZE = 0.5f
     }
 }
