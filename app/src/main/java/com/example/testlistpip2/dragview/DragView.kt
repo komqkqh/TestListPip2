@@ -39,7 +39,6 @@ class DragView @JvmOverloads constructor(
     /**
      * 가로 세로마다 스케일 비율이 달라짐
      */
-    private var scalePipX = 0f
     private var scalePipY = 0f
 
     // 플레이어 세로버전 높이
@@ -48,7 +47,10 @@ class DragView @JvmOverloads constructor(
     private var windowWidth = 0
     private var windowHeight = 0
 
-    private val margin = 0
+    private val marginTop = dpToPx(context, 50f)
+    private val marginLeft = dpToPx(context, 50f)
+    private val marginRight = dpToPx(context, 50f)
+    private val marginBottom = dpToPx(context, 50f)
 
     /**
      * 가속도 구하는녀석
@@ -73,12 +75,9 @@ class DragView @JvmOverloads constructor(
      */
     private val clickSensitivity = 5f
 
-    private lateinit var activity: Activity
-
     private var orientation = 0
 
-    fun init(activity: Activity, top: ViewGroup, bottom: ViewGroup, listener: IDragListener) {
-        this.activity = activity
+    fun init(top: ViewGroup, bottom: ViewGroup, listener: IDragListener) {
         topView = top
         bottomView = bottom
         dragListener = listener
@@ -165,10 +164,6 @@ class DragView @JvmOverloads constructor(
                                 .translationY(checkY)
                                 .setDuration(0)
                                 .start()
-//                            Log.i(
-//                                TAG,
-//                                "ACTION_MOVE check:($checkX, $checkY) -> x[$moveCheckX], y[$moveCheckY]"
-//                            )
                         } else {
                             // 드래그 가속도 측정
                             tracker.computeCurrentVelocity(1)
@@ -191,7 +186,6 @@ class DragView @JvmOverloads constructor(
                                 .translationY(checkY)
                                 .setDuration(0)
                                 .start()
-//                            Log.i(TAG, "ACTION_MOVE velocity:[$velocity], checkY:[$checkY]")
                         }
                     }
                     MotionEvent.ACTION_UP -> {
@@ -228,7 +222,7 @@ class DragView @JvmOverloads constructor(
                             // 드래그 복귀, 내리기 결정
                             if (CHECK_DRAG_SPEED < velocity || v.y > checkResumeY) {
                                 Log.i(TAG, "ACTION_UP isPipMode:[$isPipMode] drag")
-                                moveMinimized(parentView, v)
+                                moveMinimized(parentView, v, false)
                             } else {
                                 Log.i(TAG, "ACTION_UP isPipMode:[$isPipMode] 복귀")
                                 moveMaximized()
@@ -246,7 +240,7 @@ class DragView @JvmOverloads constructor(
     /**
      * 최대화
      */
-    fun moveMaximized() {
+    private fun moveMaximized() {
         post {
             Log.d(TAG, "moveMaximized()")
             isPipMode = false
@@ -300,7 +294,7 @@ class DragView @JvmOverloads constructor(
     /**
      * 최소화
      */
-    fun moveMinimized(parentView: View, view: View) {
+    private fun moveMinimized(parentView: View, view: View, isRotation: Boolean) {
         setTopViewLayoutParams()
 
         post {
@@ -325,8 +319,12 @@ class DragView @JvmOverloads constructor(
             moveX += (topWidth - (topWidth * scaleSize)) / 2
             moveY += (topHeight - (topHeight * scalePipY)) / 2
 
-            // Y scale 사이즈 따로
-//            setScaleY()
+            // 마진값 처리
+//            moveX -= margin
+//            moveY -= margin
+
+            moveX -= marginRight
+            moveY -= marginBottom
 
             Log.i(
                 TAG,
@@ -340,6 +338,7 @@ class DragView @JvmOverloads constructor(
                 TAG,
                 "moveMin() pip size (${topWidth * scaleSize}, ${topHeight * scalePipY})"
             )
+
             // 사이즈 조절
             view.animate()
                 .x(moveX)
@@ -349,6 +348,8 @@ class DragView @JvmOverloads constructor(
                 .setDuration(100)
                 .start()
 
+            if (!isRotation) pipPosition = PIP_RIGHT_BOTTOM
+
             dragListener.onMinimized()
         }
     }
@@ -356,7 +357,7 @@ class DragView @JvmOverloads constructor(
     /**
      * 4등분 화면으로 이동시켜주는 애니메이션 처리
      */
-    fun actionUpMove(parent: View, view: View) {
+    private fun actionUpMove(parent: View, view: View) {
         // 마진값
         var dragX = view.x
         var dragY = view.y
@@ -379,11 +380,11 @@ class DragView @JvmOverloads constructor(
         var actionMoveX: Float = if (centerX < (parent.width / 2) - scaleSizeX) {
             Log.d(TAG, "actionMove 왼쪽")
             left = true
-            margin.toFloat() - scaleSizeX
+            marginLeft - scaleSizeX
         } else {
             Log.d(TAG, "actionMove 오른쪽")
             left = false
-            scaleSizeX - (margin).toFloat()
+            scaleSizeX - marginRight
         }
         Log.d(TAG, "actionMove x : $actionMoveX")
 
@@ -395,7 +396,7 @@ class DragView @JvmOverloads constructor(
             } else {
                 pipPosition = PIP_RIGHT_TOP
             }
-            -scaleSizeY + margin.toFloat()
+            -scaleSizeY + marginTop
         } else {
             Log.d(TAG, "actionMove 아래")
             if (left) {
@@ -403,7 +404,7 @@ class DragView @JvmOverloads constructor(
             } else {
                 pipPosition = PIP_RIGHT_BOTTOM
             }
-            (parent.height - view.height).toFloat() + scaleSizeY - margin
+            (parent.height - view.height).toFloat() + scaleSizeY - marginBottom
         }
         Log.d(TAG, "actionMove y : $actionMoveY")
 
@@ -422,7 +423,7 @@ class DragView @JvmOverloads constructor(
     /**
      * 코너 위치로 이동
      */
-    fun setPipCorner() {
+    private fun movePipEdge() {
         post {
             // 원래 사이즈와 줄어든 사이즈의 거리 차이점
             var scaleSizeX = getScaleSizeX(topView)
@@ -433,20 +434,20 @@ class DragView @JvmOverloads constructor(
 
             when (pipPosition) {
                 PIP_LEFT_TOP -> {
-                    actionMoveX = margin.toFloat() - scaleSizeX
-                    actionMoveY = -scaleSizeY + margin.toFloat()
+                    actionMoveX = marginLeft - scaleSizeX
+                    actionMoveY = -scaleSizeY + marginTop
                 }
                 PIP_RIGHT_TOP -> {
-                    actionMoveX = scaleSizeX - (margin).toFloat()
-                    actionMoveY = -scaleSizeY + margin.toFloat()
+                    actionMoveX = scaleSizeX - marginRight
+                    actionMoveY = -scaleSizeY + marginTop
                 }
                 PIP_LEFT_BOTTOM -> {
-                    actionMoveX = margin.toFloat() - scaleSizeX
-                    actionMoveY = (height - topView.height).toFloat() + scaleSizeY - margin
+                    actionMoveX = marginLeft - scaleSizeX
+                    actionMoveY = (height - topView.height).toFloat() + scaleSizeY - marginBottom
                 }
                 PIP_RIGHT_BOTTOM -> {
-                    actionMoveX = scaleSizeX - (margin).toFloat()
-                    actionMoveY = (height - topView.height).toFloat() + scaleSizeY - margin
+                    actionMoveX = scaleSizeX - marginRight
+                    actionMoveY = (height - topView.height).toFloat() + scaleSizeY - marginBottom
                 }
             }
 
@@ -462,18 +463,24 @@ class DragView @JvmOverloads constructor(
         }
     }
 
-    fun getScaleSizeX(view: View): Float {
+    /**
+     * 원래 사이즈와 줄어든 사이즈의 거리 차이점 X 좌표
+     */
+    private fun getScaleSizeX(view: View): Float {
         return (view.width - (view.width * scaleSize)) / 2
     }
 
-    fun getScaleSizeY(view: View): Float {
+    /**
+     * 원래 사이즈와 줄어든 사이즈의 거리 차이점 Y 좌표
+     */
+    private fun getScaleSizeY(view: View): Float {
         return (view.height - (view.height * scalePipY)) / 2
     }
 
     /**
      * 밖으로 드래그해서 종료시키는 메소드
      */
-    fun checkDragFinish(view: View): Boolean {
+    private fun checkDragFinish(view: View): Boolean {
         var isFinish = true
 
         var moveX = view.x
@@ -546,7 +553,14 @@ class DragView @JvmOverloads constructor(
      * 최소화 시키기
      */
     fun setMinimized() {
-        moveMinimized(this, topView)
+        moveMinimized(this, topView, false)
+    }
+
+    /**
+     * 최소화 화면 회전시 호출
+     */
+    private fun setMinimizedRotation() {
+        moveMinimized(this, topView, true)
     }
 
     /**
@@ -574,19 +588,25 @@ class DragView @JvmOverloads constructor(
         setTopLayout()
 
         if (isPipMode) {
-            setMinimized()
-            setPipCorner()
+            setMinimizedRotation()
+            movePipEdge()
         } else {
             setMaximized()
         }
     }
 
+    /**
+     * dp -> px
+     */
     fun dpToPx(context: Context, dp: Float): Int {
         // Took from http://stackoverflow.com/questions/8309354/formula-px-to-dp-dp-to-px-android
         val scale = context.resources.displayMetrics.density
         return (dp * scale + 0.5f).toInt()
     }
 
+    /**
+     * 상태바 높이 가져오기
+     */
     fun getStatusBarHeight(context: Context): Int {
         val resourceId = context.resources.getIdentifier("status_bar_height", "dimen", "android")
         var statusBarHeight = 0
@@ -607,9 +627,12 @@ class DragView @JvmOverloads constructor(
      */
     private fun getWindowSize() {
         val size = Point()
-        activity.windowManager.defaultDisplay.getRealSize(size)
-        windowWidth = size.x
-        windowHeight = size.y
+        if (context is Activity) {
+            (context as Activity).windowManager.defaultDisplay.getRealSize(size)
+            windowWidth = size.x
+            windowHeight = size.y
+        }
+
         Log.i(TAG, "getWindowSize() window($windowWidth, $windowHeight)")
     }
 

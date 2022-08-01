@@ -24,7 +24,7 @@ class PlayerViewFragment : Fragment(), IDragListener {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        activity?.let { binding.clPlayerLayout.init(it, binding.flTop, binding.flBottom, this) }
+        activity?.let { binding.clPlayerLayout.init(binding.flTop, binding.flBottom, this) }
         binding.btn1.setOnClickListener {
             Log.i("TEST", "CLICK 1")
         }
@@ -37,7 +37,7 @@ class PlayerViewFragment : Fragment(), IDragListener {
             binding.clPlayerLayout.setMinimized()
         }
 
-        binding.clPlayerLayout.moveMaximized()
+        binding.clPlayerLayout.setMaximized()
     }
 
     override fun onFinish() {
