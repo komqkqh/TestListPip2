@@ -47,10 +47,13 @@ class DragView @JvmOverloads constructor(
     private var windowWidth = 0
     private var windowHeight = 0
 
-    private val marginTop = dpToPx(context, 50f)
-    private val marginLeft = dpToPx(context, 50f)
-    private val marginRight = dpToPx(context, 50f)
-    private val marginBottom = dpToPx(context, 50f)
+    /**
+     * 마진값
+     */
+    private val marginTop = dpToPx(context, 5f)
+    private val marginLeft = dpToPx(context, 5f)
+    private val marginRight = dpToPx(context, 5f)
+    private val marginBottom = dpToPx(context, 5f)
 
     /**
      * 가속도 구하는녀석
@@ -73,7 +76,7 @@ class DragView @JvmOverloads constructor(
     /**
      * 클릭 민감도
      */
-    private val clickSensitivity = 5f
+    private val clickSensitivity = 10f
 
     private var orientation = 0
 
@@ -127,6 +130,9 @@ class DragView @JvmOverloads constructor(
         // 속도 측정
         var velocity = 0f
 
+        var velocityX = 0f
+        var velocityY = 0f
+
         topView.setOnTouchListener(object : View.OnTouchListener {
 
             // 이동한 길이 값
@@ -154,7 +160,19 @@ class DragView @JvmOverloads constructor(
                         }
                     }
                     MotionEvent.ACTION_MOVE -> {
+
+                        // 드래그 가속도 측정
+                        tracker.computeCurrentVelocity(1)
+
                         if (isPipMode) {
+
+                            if (velocityX < abs(tracker.xVelocity)) {
+                                velocityX = abs(tracker.xVelocity)
+                            }
+                            if (velocityY < abs(tracker.yVelocity)) {
+                                velocityY = abs(tracker.yVelocity)
+                            }
+
                             // pip 용 드래그만
                             var checkX = event.rawX + moveX
                             var checkY = event.rawY + moveY
@@ -165,8 +183,6 @@ class DragView @JvmOverloads constructor(
                                 .setDuration(0)
                                 .start()
                         } else {
-                            // 드래그 가속도 측정
-                            tracker.computeCurrentVelocity(1)
                             if (velocity < abs(tracker.yVelocity)) {
                                 velocity = abs(tracker.yVelocity)
                             }
@@ -197,7 +213,7 @@ class DragView @JvmOverloads constructor(
                             var checkY = event.rawY + moveY
 
                             // 터치 오차범위 내에 있으면 클릭으로 인정
-                            if (clickSensitivity > abs(checkX - moveCheckX) ||
+                            if (clickSensitivity > abs(checkX - moveCheckX) &&
                                 clickSensitivity > abs(checkY - moveCheckY)
                             ) {
                                 // 클릭
@@ -205,22 +221,48 @@ class DragView @JvmOverloads constructor(
                             } else {
                                 // 밖으로 내보내는 드래그 체크
                                 if (!checkDragFinish(v)) {
-                                    // 4등분 화면 위치로 보내는 애니메이션
-                                    actionUpMove(parentView, v)
+                                    Log.i(
+                                        TAG,
+                                        "ACTION_UP 가속도 체크 velocityX:[$velocityX], velocityY:[$velocityY]"
+                                    )
+                                    Log.i(
+                                        TAG,
+                                        "ACTION_UP 거리 체크 x ${width / 2} < ${abs(checkX - moveCheckX)}, y ${height / 2} < ${
+                                        abs(
+                                            checkY - moveCheckY
+                                        )
+                                        }"
+                                    )
+                                    // 가속도 체크 (드래그 길이가 길면 드래그 이동 로직을 태운다, 가속도는 드래그 길이가 무조건 짧아야지 태운다.)
+                                    if ((width / 2) > abs(checkX - moveCheckX) &&
+                                        (height / 2) > abs(checkY - moveCheckY) &&
+                                        (CHECK_DRAG_SPEED < velocityX || CHECK_DRAG_SPEED < velocityY)
+                                    ) {
+                                        // 가속도 이동
+                                        actionUpMoveCheck(velocityX, velocityY)
+                                    } else {
+                                        // 4등분 화면 위치로 보내는 애니메이션
+                                        actionUpMove(parentView, v)
+                                    }
                                 }
                             }
+
+                            velocityX = 0f
+                            velocityY = 0f
                             Log.i(
                                 TAG,
                                 "ACTION_UP pip Mode x,y:(${parentView.x}, ${parentView.y})"
                             )
                         } else {
                             var checkResumeY = parentView.height / 3 // 1/3 위치 이상 넘어가면 드래그 되도록 체크
+                            var checkY = event.rawY + moveY // 드래그 최소 범위 체크용
+                            var minCheck = (height / 10) < abs(checkY - moveCheckY) // 1/10 길이 보다 더 길게 드래그 해야지 최소 화면으로 넘어가도록
                             Log.i(
                                 TAG,
                                 "ACTION_UP 최고 가속도:[$velocity] y:[${parentView.y}], checkResumeY:[$checkResumeY]"
                             )
                             // 드래그 복귀, 내리기 결정
-                            if (CHECK_DRAG_SPEED < velocity || v.y > checkResumeY) {
+                            if (minCheck && CHECK_DRAG_SPEED < velocity || v.y > checkResumeY) {
                                 Log.i(TAG, "ACTION_UP isPipMode:[$isPipMode] drag")
                                 moveMinimized(parentView, v, false)
                             } else {
@@ -351,6 +393,64 @@ class DragView @JvmOverloads constructor(
             if (!isRotation) pipPosition = PIP_RIGHT_BOTTOM
 
             dragListener.onMinimized()
+        }
+    }
+
+    /**
+     * 4등분 화면으로 가속도 값을 통해 움직여주는 로직 처리
+     */
+    private fun actionUpMoveCheck(velocityX: Float, velocityY: Float) {
+        Log.i(
+            TAG,
+            "actionUpMoveCheck() velocityX:[$velocityX], velocityY:[$velocityY], pipPosition:[$pipPosition]"
+        )
+        if (CHECK_DRAG_SPEED < velocityX || CHECK_DRAG_SPEED < velocityY) {
+            if (velocityX < velocityY) {
+                actionMoveCheckY()
+            } else {
+                actionMoveCheckX()
+            }
+        }
+
+        Log.i(
+            TAG,
+            "actionUpMoveCheck() end -> pipPosition:[$pipPosition]"
+        )
+
+        movePipEdge()
+    }
+
+    private fun actionMoveCheckX() {
+        when (pipPosition) {
+            PIP_LEFT_TOP -> {
+                pipPosition = PIP_RIGHT_TOP
+            }
+            PIP_RIGHT_TOP -> {
+                pipPosition = PIP_LEFT_TOP
+            }
+            PIP_LEFT_BOTTOM -> {
+                pipPosition = PIP_RIGHT_BOTTOM
+            }
+            PIP_RIGHT_BOTTOM -> {
+                pipPosition = PIP_LEFT_BOTTOM
+            }
+        }
+    }
+
+    private fun actionMoveCheckY() {
+        when (pipPosition) {
+            PIP_LEFT_TOP -> {
+                pipPosition = PIP_LEFT_BOTTOM
+            }
+            PIP_RIGHT_TOP -> {
+                pipPosition = PIP_RIGHT_BOTTOM
+            }
+            PIP_LEFT_BOTTOM -> {
+                pipPosition = PIP_LEFT_TOP
+            }
+            PIP_RIGHT_BOTTOM -> {
+                pipPosition = PIP_RIGHT_TOP
+            }
         }
     }
 
