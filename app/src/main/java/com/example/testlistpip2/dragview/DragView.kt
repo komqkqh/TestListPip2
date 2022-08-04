@@ -24,6 +24,7 @@ class DragView @JvmOverloads constructor(
 
     private lateinit var topView: ViewGroup
     private lateinit var bottomView: ViewGroup
+
     private lateinit var dragListener: IDragListener
 
     // 드래그 변수 모음 (나중에 한곳에 몰아넣기 위해) ===
@@ -118,8 +119,7 @@ class DragView @JvmOverloads constructor(
 
             scaleSize = pipMinWidth.toFloat() / (width.toFloat())
 
-            Log.i(
-                TAG,
+            dragLog(
                 "setScaleSize() scaleSize:[$scaleSize], parentView($width, $height), window($windowWidth, $windowHeight), pipMinWidth:[$pipMinWidth], minWidth:[${(width) * scaleSize}]"
             )
         }
@@ -145,7 +145,7 @@ class DragView @JvmOverloads constructor(
                 tracker.addMovement(event)
                 when (event.actionMasked) {
                     MotionEvent.ACTION_DOWN -> {
-                        Log.i(TAG, "ACTION_DOWN")
+                        dragLog("ACTION_DOWN")
 //                        moveX = v.x - event.rawX
                         moveY = v.y - event.rawY
                         moveX = v.x - event.rawX
@@ -221,12 +221,10 @@ class DragView @JvmOverloads constructor(
                             } else {
                                 // 밖으로 내보내는 드래그 체크
                                 if (!checkDragFinish(v)) {
-                                    Log.i(
-                                        TAG,
+                                    dragLog(
                                         "ACTION_UP 가속도 체크 velocityX:[$velocityX], velocityY:[$velocityY]"
                                     )
-                                    Log.i(
-                                        TAG,
+                                    dragLog(
                                         "ACTION_UP 거리 체크 x ${width / 2} < ${abs(checkX - moveCheckX)}, y ${height / 2} < ${
                                         abs(
                                             checkY - moveCheckY
@@ -249,24 +247,23 @@ class DragView @JvmOverloads constructor(
 
                             velocityX = 0f
                             velocityY = 0f
-                            Log.i(
-                                TAG,
+                            dragLog(
                                 "ACTION_UP pip Mode x,y:(${parentView.x}, ${parentView.y})"
                             )
                         } else {
                             var checkResumeY = parentView.height / 3 // 1/3 위치 이상 넘어가면 드래그 되도록 체크
                             var checkY = event.rawY + moveY // 드래그 최소 범위 체크용
-                            var minCheck = (height / 10) < abs(checkY - moveCheckY) // 1/10 길이 보다 더 길게 드래그 해야지 최소 화면으로 넘어가도록
-                            Log.i(
-                                TAG,
+                            var minCheck =
+                                (height / 10) < abs(checkY - moveCheckY) // 1/10 길이 보다 더 길게 드래그 해야지 최소 화면으로 넘어가도록
+                            dragLog(
                                 "ACTION_UP 최고 가속도:[$velocity] y:[${parentView.y}], checkResumeY:[$checkResumeY]"
                             )
                             // 드래그 복귀, 내리기 결정
                             if (minCheck && CHECK_DRAG_SPEED < velocity || v.y > checkResumeY) {
-                                Log.i(TAG, "ACTION_UP isPipMode:[$isPipMode] drag")
+                                dragLog("ACTION_UP isPipMode:[$isPipMode] drag")
                                 moveMinimized(parentView, v, false)
                             } else {
-                                Log.i(TAG, "ACTION_UP isPipMode:[$isPipMode] 복귀")
+                                dragLog("ACTION_UP isPipMode:[$isPipMode] 복귀")
                                 moveMaximized()
                             }
                         }
@@ -284,7 +281,7 @@ class DragView @JvmOverloads constructor(
      */
     private fun moveMaximized() {
         post {
-            Log.d(TAG, "moveMaximized()")
+            dragLogD("moveMaximized()")
             isPipMode = false
 
             setTopViewLayoutParams()
@@ -340,7 +337,7 @@ class DragView @JvmOverloads constructor(
         setTopViewLayoutParams()
 
         post {
-            Log.d(TAG, "moveMin() 최소화")
+            dragLogD("moveMin() 최소화")
 
             isPipMode = true
             bottomView.alpha = 0f
@@ -352,8 +349,7 @@ class DragView @JvmOverloads constructor(
             // 이동 (원래 사이즈만큼)
             moveX = parentView.width.toFloat() - topWidth
             moveY = parentView.height.toFloat() - topHeight
-            Log.i(
-                TAG,
+            dragLog(
                 "moveMin() move:($moveX, $moveY), parentView(${parentView.width}, ${parentView.height}), topView(${topView.width}, ${topView.height})"
             )
 
@@ -368,16 +364,13 @@ class DragView @JvmOverloads constructor(
             moveX -= marginRight
             moveY -= marginBottom
 
-            Log.i(
-                TAG,
+            dragLog(
                 "moveMin() move:($moveX, $moveY) - height:$topHeight -> ${(topHeight - (topHeight * scalePipY)) / 2}, width:$topWidth -> ${(topWidth - (topWidth * scaleSize)) / 2}, scaleSize:[$scaleSize], scaleY:[$scalePipY]"
             )
-            Log.i(
-                TAG,
+            dragLog(
                 "moveMin() bottomView height:[${bottomView.height}]"
             )
-            Log.i(
-                TAG,
+            dragLog(
                 "moveMin() pip size (${topWidth * scaleSize}, ${topHeight * scalePipY})"
             )
 
@@ -400,8 +393,7 @@ class DragView @JvmOverloads constructor(
      * 4등분 화면으로 가속도 값을 통해 움직여주는 로직 처리
      */
     private fun actionUpMoveCheck(velocityX: Float, velocityY: Float) {
-        Log.i(
-            TAG,
+        dragLog(
             "actionUpMoveCheck() velocityX:[$velocityX], velocityY:[$velocityY], pipPosition:[$pipPosition]"
         )
         if (CHECK_DRAG_SPEED < velocityX || CHECK_DRAG_SPEED < velocityY) {
@@ -412,14 +404,16 @@ class DragView @JvmOverloads constructor(
             }
         }
 
-        Log.i(
-            TAG,
+        dragLog(
             "actionUpMoveCheck() end -> pipPosition:[$pipPosition]"
         )
 
         movePipEdge()
     }
 
+    /**
+     * x 좌표 반대값 반환
+     */
     private fun actionMoveCheckX() {
         when (pipPosition) {
             PIP_LEFT_TOP -> {
@@ -437,6 +431,9 @@ class DragView @JvmOverloads constructor(
         }
     }
 
+    /**
+     * Y 좌표 반대값 반환
+     */
     private fun actionMoveCheckY() {
         when (pipPosition) {
             PIP_LEFT_TOP -> {
@@ -478,19 +475,19 @@ class DragView @JvmOverloads constructor(
 
         // 왼쪽, 오른쪽 구분
         var actionMoveX: Float = if (centerX < (parent.width / 2) - scaleSizeX) {
-            Log.d(TAG, "actionMove 왼쪽")
+            dragLogD("actionMove 왼쪽")
             left = true
             marginLeft - scaleSizeX
         } else {
-            Log.d(TAG, "actionMove 오른쪽")
+            dragLogD("actionMove 오른쪽")
             left = false
             scaleSizeX - marginRight
         }
-        Log.d(TAG, "actionMove x : $actionMoveX")
+        dragLogD("actionMove x : $actionMoveX")
 
         // 위, 아래 구분
         var actionMoveY: Float = if (centerY < (parent.height / 2) - scaleSizeY) {
-            Log.d(TAG, "actionMove 위")
+            dragLogD("actionMove 위")
             if (left) {
                 pipPosition = PIP_LEFT_TOP
             } else {
@@ -498,7 +495,7 @@ class DragView @JvmOverloads constructor(
             }
             -scaleSizeY + marginTop
         } else {
-            Log.d(TAG, "actionMove 아래")
+            dragLogD("actionMove 아래")
             if (left) {
                 pipPosition = PIP_LEFT_BOTTOM
             } else {
@@ -506,10 +503,9 @@ class DragView @JvmOverloads constructor(
             }
             (parent.height - view.height).toFloat() + scaleSizeY - marginBottom
         }
-        Log.d(TAG, "actionMove y : $actionMoveY")
+        dragLogD("actionMove y : $actionMoveY")
 
-        Log.d(
-            TAG,
+        dragLogD(
             "c:[$actionMoveX, $actionMoveY], x,y:[$dragX, $dragY], scaleSize:[$scaleSizeX, $scaleSizeY]"
         )
 
@@ -588,8 +584,7 @@ class DragView @JvmOverloads constructor(
         // 선택한 이미지 정 가운데 좌표
         var viewPositionX = (moveX + (view.width / 2))
 
-        Log.d(
-            TAG,
+        dragLogD(
             "checkDragFinish() viewPositionX : $viewPositionX = ($moveX + (${view.width} / 2))"
         )
 
@@ -598,15 +593,13 @@ class DragView @JvmOverloads constructor(
         if (viewPositionX < 0) {
             // 왼쪽
             actionMoveX = -(view.width - ((view.width / 2) - ((view.width * scaleSize) / 2)))
-            Log.d(
-                TAG,
+            dragLogD(
                 "checkDragFinish() 왼쪽 viewPositionX:[$viewPositionX], actionMoveX:[$actionMoveX]"
             )
         } else if (view.width < viewPositionX) {
             // 오른쪽
             actionMoveX = view.width - ((view.width / 2) - ((view.width * scaleSize) / 2))
-            Log.d(
-                TAG,
+            dragLogD(
                 "checkDragFinish() 오른쪽 viewPositionX:[$viewPositionX], actionMoveX:[$actionMoveX]"
             )
         } else {
@@ -620,20 +613,20 @@ class DragView @JvmOverloads constructor(
                     .setListener(object : Animator.AnimatorListener {
 
                         override fun onAnimationStart(p0: Animator?) {
-                            Log.d(TAG, "onAnimationStart() $this")
+                            dragLogD("onAnimationStart() $this")
                         }
 
                         override fun onAnimationEnd(a: Animator) {
-                            Log.d(TAG, "onAnimationEnd() $this")
+                            dragLogD("onAnimationEnd() $this")
                             dragListener.onFinish()
                         }
 
                         override fun onAnimationCancel(p0: Animator?) {
-                            Log.d(TAG, "onAnimationCancel()")
+                            dragLogD("onAnimationCancel()")
                         }
 
                         override fun onAnimationRepeat(p0: Animator?) {
-                            Log.d(TAG, "onAnimationRepeat()")
+                            dragLogD("onAnimationRepeat()")
                         }
                     })
                     .translationX(actionMoveX)
@@ -642,8 +635,7 @@ class DragView @JvmOverloads constructor(
             }
         }
 
-        Log.d(
-            TAG,
+        dragLogD(
             "checkDragFinish() : [$viewPositionX] actionMoveX:[$actionMoveX] moveX:[$moveX]"
         )
         return isFinish
@@ -679,8 +671,7 @@ class DragView @JvmOverloads constructor(
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
-        Log.d(
-            TAG,
+        dragLogD(
             "onConfigurationChanged newConfig:[${newConfig.orientation}], isPipMode:[$isPipMode]"
         )
         setOrientation(newConfig.orientation)
@@ -733,7 +724,7 @@ class DragView @JvmOverloads constructor(
             windowHeight = size.y
         }
 
-        Log.i(TAG, "getWindowSize() window($windowWidth, $windowHeight)")
+        dragLog("getWindowSize() window($windowWidth, $windowHeight)")
     }
 
     /**
@@ -746,16 +737,23 @@ class DragView @JvmOverloads constructor(
                     (dpToPx(context, playerPortHeight) / 2).toFloat() /
                         height
                     )
-                Log.d(
-                    TAG,
+                dragLogD(
                     "scalePipY() $scalePipY = ${(dpToPx(context, playerPortHeight) / 2)} " +
                         "/ ($windowHeight - ${getStatusBarHeight(context)})"
                 )
             } else {
                 scalePipY = scaleSize
             }
-            Log.i(TAG, "setScaleY() scalePipY:[$scalePipY]")
+            dragLog("setScaleY() scalePipY:[$scalePipY]")
         }
+    }
+
+    private fun dragLog(str: String) {
+        Log.i(TAG, str)
+    }
+
+    private fun dragLogD(str: String) {
+        Log.d(TAG, str)
     }
 
     companion object {
