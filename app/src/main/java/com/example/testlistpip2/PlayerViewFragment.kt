@@ -65,6 +65,21 @@ class PlayerViewFragment : Fragment(), IDragListener {
         Log.d("TEST", "onPipDragingStart()")
     }
 
+    override fun onClick() {
+        Log.d("TEST", "onClick()")
+
+    }
+
+    override fun onLongClick() {
+        Log.d("TEST", "onLongClick()")
+
+    }
+
+    override fun onDoubleTab(isLeft: Boolean) {
+        Log.d("TEST", "onDoubleTab() isLeft:[$isLeft]")
+
+    }
+
     /**
      * PIP 상태에 따른 UI 변경
      */

@@ -28,4 +28,19 @@ interface IDragListener {
      * pip 모드 중 드래그
      */
     fun onPipDragingStart()
+
+    /**
+     * 일반 화면 클릭
+     */
+    fun onClick()
+
+    /**
+     * 롱 클릭
+     */
+    fun onLongClick()
+
+    /**
+     * 더블 탭 감지
+     */
+    fun onDoubleTab(isLeft: Boolean)
 }

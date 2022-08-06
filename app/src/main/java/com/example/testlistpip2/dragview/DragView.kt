@@ -6,12 +6,17 @@ import android.content.Context
 import android.content.res.Configuration
 import android.graphics.Point
 import android.graphics.Rect
+import android.os.Handler
+import android.os.Looper
+import android.os.Message
 import android.util.AttributeSet
 import android.util.Log
 import android.view.MotionEvent
 import android.view.VelocityTracker
 import android.view.View
+import android.view.ViewConfiguration
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.dynamicanimation.animation.DynamicAnimation
 import androidx.dynamicanimation.animation.SpringAnimation
@@ -81,6 +86,35 @@ class DragView @JvmOverloads constructor(
 
     private var orientation = 0
 
+    /**
+     * 드래그 가능 상태(pip 가능 상태 유무)
+     */
+    var dragEnable = true
+
+    /**
+     * 화면 잠금 상태 (클릭, 드래그 전부 막힘)
+     */
+    var screenLock = false
+
+    private var tapUpStartTime: Long = 0
+
+    private val dragHandler: Handler = DragHandler()
+
+    /**
+     * Drag Moing State
+     */
+    private var dragMovingType = 0
+
+    /**
+     * 최소 터치 움찔(?!)범위
+     */
+    private val scrollSlopPx = ViewConfiguration.get(context).scaledTouchSlop
+
+    /**
+     * 직전 클릭이 롱 클릭이였을 경우
+     */
+    private var isLongClick = false
+
     fun init(top: ViewGroup, bottom: ViewGroup, listener: IDragListener) {
         topView = top
         bottomView = bottom
@@ -139,7 +173,16 @@ class DragView @JvmOverloads constructor(
             var moveCheckX = 0f
             var moveCheckY = 0f
 
-            override fun onTouch(v: View, event: MotionEvent): Boolean {
+            var clickCheckX = 0f
+            var clickCheckY = 0f
+
+            /**
+             * 화면 이동만 제어
+             */
+            fun moveTouchEvent(v: View, event: MotionEvent) {
+                if (!dragEnable || screenLock) {
+                    return
+                }
                 var parentView: View = v.parent as View
 
                 tracker.addMovement(event)
@@ -183,25 +226,34 @@ class DragView @JvmOverloads constructor(
                                 .setDuration(0)
                                 .start()
                         } else {
-                            if (velocity < abs(tracker.yVelocity)) {
-                                velocity = abs(tracker.yVelocity)
+                            val dy: Float = abs(event.y - clickCheckY)
+                            // 최소 터치 움찔 범위
+                            if (dy > scrollSlopPx) {
+                                dragMovingType = DRAG_MOVING_UNKNOWN
                             }
 
-                            // 드래그 이동
-                            var checkY = event.rawY + moveY
-                            if (checkY < 0) {
-                                checkY = 0f
+                            if (dragMovingType == DRAG_MOVING_UNKNOWN) {
+                                dragLog("moveTouchEvent() ACTION_MOVE scrollSlopPx ~~~ dy:[$dy], scrollSlopPx:[$scrollSlopPx]")
+                                if (velocity < abs(tracker.yVelocity)) {
+                                    velocity = abs(tracker.yVelocity)
+                                }
+
+                                // 드래그 이동
+                                var checkY = event.rawY + moveY
+                                if (checkY < 0) {
+                                    checkY = 0f
+                                }
+
+                                v.animate()
+                                    .translationY(checkY)
+                                    .setDuration(0)
+                                    .start()
+
+                                bottomView.animate()
+                                    .translationY(checkY)
+                                    .setDuration(0)
+                                    .start()
                             }
-
-                            v.animate()
-                                .translationY(checkY)
-                                .setDuration(0)
-                                .start()
-
-                            bottomView.animate()
-                                .translationY(checkY)
-                                .setDuration(0)
-                                .start()
                         }
                     }
                     MotionEvent.ACTION_UP -> {
@@ -212,8 +264,10 @@ class DragView @JvmOverloads constructor(
                             var checkX = event.rawX + moveX
                             var checkY = event.rawY + moveY
 
+                            val dx: Float = abs(event.x - clickCheckX)
+                            val dy: Float = abs(event.y - clickCheckY)
                             // 터치 오차범위 내에 있으면 클릭으로 인정
-                            if (clickSensitivity > abs(checkX - moveCheckX) &&
+                            if (clickSensitivity > abs(checkX - moveCheckX) ||
                                 clickSensitivity > abs(checkY - moveCheckY)
                             ) {
                                 // 클릭
@@ -271,6 +325,93 @@ class DragView @JvmOverloads constructor(
                         velocity = 0f
                     }
                 }
+            }
+
+            /**
+             * 클릭만 제어
+             */
+            fun clickTouchEvent(v: View, event: MotionEvent) {
+                if (isPipMode) {
+                    return
+                }
+                val x: Float = event.x
+                val y: Float = event.y
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+
+                        clickCheckX = x
+                        clickCheckY = y
+                        dragLog("clickTouchEvent() ACTION_DOWN")
+                        removeLongTab()
+                        delayedLongTab()
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        val dx: Float = abs(x - clickCheckX)
+                        val dy: Float = abs(y - clickCheckY)
+                        if (dx > scrollSlopPx && dx > dy) {
+                            dragLog("clickTouchEvent() ACTION_MOVE scrollSlopPx 1")
+                            removeLongTab()
+                        } else if (dy > scrollSlopPx) {
+                            dragLog("clickTouchEvent() ACTION_MOVE scrollSlopPx 2")
+                            removeLongTab()
+                        }
+                    }
+                    MotionEvent.ACTION_UP -> {
+                        val dx: Float = abs(x - clickCheckX)
+                        val dy: Float = abs(y - clickCheckY)
+                        dragLog("clickTouchEvent() ACTION_UP d($dx, $dy), clickCheckY:[$clickCheckY] isLongClick:[$isLongClick]")
+                        if (dx < scrollSlopPx && dy < scrollSlopPx) {
+                            removeLongTab()
+                            removeSingleTab()
+
+                            if (isLongClick) {
+                                isLongClick = false
+                            } else {
+                                // 더블 탭 체크
+                                var isDbTap = false
+                                var parentView: View = v.parent as View
+                                dragLog("clickTouchEvent() ACTION_UP tapUpStartTime:[$tapUpStartTime] ")
+                                if (System.currentTimeMillis() - tapUpStartTime < DEFAULT_SINGLE_TAP_SEC && !screenLock) {
+                                    isDbTap = true
+                                    var widthQuarter = parentView.measuredWidth / 3
+                                    if (x < widthQuarter) {
+                                        // 왼쪽
+                                        dragListener.onDoubleTab(true)
+                                    } else if (x > widthQuarter * 2) {
+                                        // 오른쪽
+                                        dragListener.onDoubleTab(false)
+                                    }
+
+                                    tapUpStartTime = 0
+                                }
+
+                                if (!isDbTap) {
+                                    // 중간은 바로 클릭 되도록
+                                    var widthQuarter = parentView.measuredWidth / 3
+                                    if (x < widthQuarter || x > widthQuarter * 2) {
+                                        delayedSingleTab()
+                                    } else {
+                                        dragListener.onClick()
+                                    }
+
+                                    tapUpStartTime = System.currentTimeMillis()
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            override fun onTouch(v: View, event: MotionEvent): Boolean {
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        clickCheckX = event.x
+                        clickCheckY = event.y
+                        dragMovingType = DRAG_MOVING_NO
+                    }
+                }
+                moveTouchEvent(v, event)
+                clickTouchEvent(v, event)
                 return true
             }
         })
@@ -756,6 +897,65 @@ class DragView @JvmOverloads constructor(
         Log.d(TAG, str)
     }
 
+    /**
+     * 클릭 체크를 위한 핸들러
+     */
+    inner class DragHandler : Handler(Looper.getMainLooper()) {
+        override fun handleMessage(msg: Message) {
+            super.handleMessage(msg)
+
+            when (msg.what) {
+                MSG_SINGLE_TAP -> {
+                    dragLog("MSG_SINGLE_TAP !!!!!")
+                    Toast.makeText(context, "MSG_SINGLE_TAP", Toast.LENGTH_SHORT).show()
+                    dragListener.onClick()
+                }
+                MSG_LONG_TAP -> {
+                    dragLog("MSG_LONG_TAP !!!!!")
+                    Toast.makeText(context, "MSG_LONG_TAP", Toast.LENGTH_SHORT).show()
+                    isLongClick = true
+                    dragListener.onLongClick()
+                }
+            }
+        }
+    }
+
+    /**
+     * 싱글탭 딜레이 시작
+     */
+    private fun delayedSingleTab() {
+        dragLog("delayedSingleTab() 싱글 클릭 시작")
+        dragHandler.sendEmptyMessageDelayed(MSG_SINGLE_TAP, DEFAULT_SINGLE_TAP_SEC)
+    }
+
+    /**
+     * 싱글탭 종료
+     */
+    private fun removeSingleTab() {
+        dragLog("removeSingleTab() 싱글 클릭 제거")
+        if (dragHandler.hasMessages(MSG_SINGLE_TAP)) {
+            dragHandler.removeMessages(MSG_SINGLE_TAP)
+        }
+    }
+
+    /**
+     * 롱 클릭 딜레이 제거
+     */
+    private fun removeLongTab() {
+        dragLog("removeLongTab() 롱 클릭 제거")
+        if (dragHandler.hasMessages(MSG_LONG_TAP)) {
+            dragHandler.removeMessages(MSG_LONG_TAP)
+        }
+    }
+
+    /**
+     * 롱 클릭 딜레이 시작
+     */
+    private fun delayedLongTab() {
+        dragLog("delayedLongTab() 롱 클릭 딜레이 시작")
+        dragHandler.sendEmptyMessageDelayed(MSG_LONG_TAP, DEFAULT_LONG_TAP_SEC)
+    }
+
     companion object {
         private val TAG: String = DragView::class.java.simpleName
         private const val PIP_LEFT_TOP = 0
@@ -763,5 +963,14 @@ class DragView @JvmOverloads constructor(
         private const val PIP_LEFT_BOTTOM = 2
         private const val PIP_RIGHT_BOTTOM = 3
         private const val PIP_SCALE_SIZE = 0.5f
+
+        const val DEFAULT_SINGLE_TAP_SEC = 250L
+        const val DEFAULT_LONG_TAP_SEC = 1002L
+
+        const val MSG_SINGLE_TAP = 10
+        const val MSG_LONG_TAP = 11
+
+        private const val DRAG_MOVING_UNKNOWN = -1
+        private const val DRAG_MOVING_NO = 0
     }
 }
