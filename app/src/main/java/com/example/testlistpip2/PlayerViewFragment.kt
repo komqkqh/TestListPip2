@@ -7,9 +7,9 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import com.example.testlistpip2.databinding.FragmentPlayerViewBinding
-import com.example.testlistpip2.dragview.IDragListener
+import com.example.testlistpip2.dragview.IDragViewListener
 
-class PlayerViewFragment : Fragment(), IDragListener {
+class PlayerViewFragment : Fragment(), IDragViewListener {
 
     private lateinit var binding: FragmentPlayerViewBinding
     override fun onCreateView(

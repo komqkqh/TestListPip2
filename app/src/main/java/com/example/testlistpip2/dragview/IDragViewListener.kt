@@ -3,7 +3,7 @@ package com.example.testlistpip2.dragview
 /**
  * 드래그 리스너
  */
-interface IDragListener {
+interface IDragViewListener {
     /**
      * pip 모드 중 종료 애니메이션 처리
      */

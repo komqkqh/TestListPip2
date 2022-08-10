@@ -30,7 +30,7 @@ class DragView @JvmOverloads constructor(
     private lateinit var topView: ViewGroup
     private lateinit var bottomView: ViewGroup
 
-    private lateinit var dragListener: IDragListener
+    private lateinit var dragListener: IDragViewListener
 
     // 드래그 변수 모음 (나중에 한곳에 몰아넣기 위해) ===
     var moveX = 0f
@@ -115,7 +115,7 @@ class DragView @JvmOverloads constructor(
      */
     private var isLongClick = false
 
-    fun init(top: ViewGroup, bottom: ViewGroup, listener: IDragListener) {
+    fun init(top: ViewGroup, bottom: ViewGroup, listener: IDragViewListener) {
         topView = top
         bottomView = bottom
         dragListener = listener
