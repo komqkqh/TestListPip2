@@ -24,7 +24,7 @@ class PlayerViewFragment : Fragment(), IDragViewListener {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        activity?.let { binding.clPlayerLayout.init(binding.flTop, binding.flBottom, this) }
+        activity?.let { binding.clPlayerLayout.setData(it, binding.flTop, binding.flBottom, this) }
         binding.btn1.setOnClickListener {
             Log.i("TEST", "CLICK 1")
         }

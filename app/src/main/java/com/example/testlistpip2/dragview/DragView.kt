@@ -50,8 +50,10 @@ class DragView @JvmOverloads constructor(
     // 플레이어 세로버전 높이
     private val playerPortHeight = 250f // dp
 
-    private var windowWidth = 0
-    private var windowHeight = 0
+    /**
+     * PIP 최소 너비값
+     */
+    private var pipMinWidth = 0
 
     /**
      * 마진값
@@ -115,13 +117,13 @@ class DragView @JvmOverloads constructor(
      */
     private var isLongClick = false
 
-    fun init(top: ViewGroup, bottom: ViewGroup, listener: IDragViewListener) {
+    fun setData(activity: Activity, top: ViewGroup, bottom: ViewGroup, listener: IDragViewListener) {
         topView = top
         bottomView = bottom
         dragListener = listener
         topView.bringToFront()
 
-        getWindowSize()
+        setMinWidth(activity)
         setOnTouch()
         setOrientation(resources.configuration.orientation)
         setTopLayout()
@@ -140,21 +142,31 @@ class DragView @JvmOverloads constructor(
     }
 
     /**
+     * 최소화 PIP 너비값
+     */
+    private fun setMinWidth(activity: Activity) {
+        val size = Point()
+        activity.windowManager.defaultDisplay.getRealSize(size)
+        var windowWidth = size.x
+        var windowHeight = size.y
+
+        pipMinWidth = if (windowWidth < windowHeight) {
+            (windowWidth * PIP_SCALE_SIZE).toInt()
+        } else {
+            (windowHeight * PIP_SCALE_SIZE).toInt()
+        }
+    }
+
+    /**
      * Scale Size 를 가로 세로 판단해서 정해주기
      */
     private fun setScaleSize() {
         post {
             // 계산용 pip 변수
-            var pipMinWidth = if (windowWidth < windowHeight) {
-                (windowWidth * PIP_SCALE_SIZE).toInt()
-            } else {
-                (windowHeight * PIP_SCALE_SIZE).toInt()
-            }
-
             scaleSize = pipMinWidth.toFloat() / (width.toFloat())
 
             dragLog(
-                "setScaleSize() scaleSize:[$scaleSize], parentView($width, $height), window($windowWidth, $windowHeight), pipMinWidth:[$pipMinWidth], minWidth:[${(width) * scaleSize}]"
+                "setScaleSize() scaleSize:[$scaleSize], parentView($width, $height), pipMinWidth:[$pipMinWidth], minWidth:[${(width) * scaleSize}]"
             )
         }
     }
@@ -816,7 +828,6 @@ class DragView @JvmOverloads constructor(
             "onConfigurationChanged newConfig:[${newConfig.orientation}], isPipMode:[$isPipMode]"
         )
         setOrientation(newConfig.orientation)
-        getWindowSize()
         setTopLayout()
 
         if (isPipMode) {
@@ -854,19 +865,6 @@ class DragView @JvmOverloads constructor(
         return statusBarHeight
     }
 
-    /**
-     * 윈도우 실제 사이즈 측정
-     */
-    private fun getWindowSize() {
-        val size = Point()
-        if (context is Activity) {
-            (context as Activity).windowManager.defaultDisplay.getRealSize(size)
-            windowWidth = size.x
-            windowHeight = size.y
-        }
-
-        dragLog("getWindowSize() window($windowWidth, $windowHeight)")
-    }
 
     /**
      * 가로에서 높이 축소를 위해 사이즈를 변경함
@@ -880,7 +878,7 @@ class DragView @JvmOverloads constructor(
                     )
                 dragLogD(
                     "scalePipY() $scalePipY = ${(dpToPx(context, playerPortHeight) / 2)} " +
-                        "/ ($windowHeight - ${getStatusBarHeight(context)})"
+                        "/ ($height - ${getStatusBarHeight(context)})"
                 )
             } else {
                 scalePipY = scaleSize
