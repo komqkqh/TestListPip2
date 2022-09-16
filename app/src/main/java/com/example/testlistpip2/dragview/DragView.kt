@@ -312,8 +312,11 @@ open class DragView constructor(
                         }
 
                         // pip 용 드래그만
-                        val checkX = event.rawX + moveX
+                        var checkX = event.rawX + moveX
                         val checkY = event.rawY + moveY
+
+                        // 센터로 포지션 잡는 변수
+                        checkX -= (v.width / 2)
 
                         if (checkMoveStart) {
                             checkMoveStart = false
@@ -586,8 +589,8 @@ open class DragView constructor(
         topView.animate()
             .translationY(0f)
             .translationX(0f)
-            .scaleX(1f)
-            .scaleY(1f)
+//            .scaleX(1f)
+//            .scaleY(1f)
             .setDuration(100)
             .start()
 
@@ -656,8 +659,8 @@ open class DragView constructor(
             topView.clipToOutline = true
             bottomView.visibility = View.GONE
 
-            val topWidth = topView.width.toFloat()
-            val topHeight = topView.height.toFloat()
+            val topWidth = topView.width.toFloat() * scaleSize
+            val topHeight = topView.height.toFloat() * scalePipY
 
             // 이동 (원래 사이즈만큼)
             moveX = parentView.width.toFloat() - topWidth
@@ -668,8 +671,8 @@ open class DragView constructor(
             )
 
             // 줄어든 사이즈만큼 위치 조절 (비율로 줄어든 만큼 차이점을 계산) !! scale 하게되면 가운데로 줄어들어서 좌표값 계산을 반으로 나눠서 해야됨.
-            moveX += (topWidth - (topWidth * scaleSize)) / 2
-            moveY += (topHeight - (topHeight * scalePipY)) / 2
+//            moveX += (topWidth - (topWidth * scaleSize)) / 2
+//            moveY += (topHeight - (topHeight * scalePipY)) / 2
 
             moveX -= marginRight
             moveY -= marginBottom
@@ -680,26 +683,20 @@ open class DragView constructor(
             )
             NLog.i(TAG, "moveMin() bottomView height:[${bottomView.height}]")
 
-            val pipWidth = topWidth * scaleSize
-            val pipHeight = topHeight * scalePipY
-
-            NLog.i(
-                TAG,
-                "moveMin() pip size ($pipWidth, $pipHeight), scale x,y ($scaleSize, $scalePipY)"
-            )
-            NLog.i(
-                TAG,
-                "moveMin() view size ($pipWidth, $pipHeight), scale x,y ($scaleSize, $scalePipY)"
-            )
             if (!isRotation) {
                 // 회전 안하고 max -> min 이동
                 view.animate()
                     .x(moveX)
                     .y(moveY)
-                    .scaleX(scaleSize)
-                    .scaleY(scalePipY)
+//                    .scaleX(scaleSize)
+//                    .scaleY(scalePipY)
                     .setDuration(100)
                     .start()
+
+                val params = view.layoutParams
+                params.width = topWidth.toInt()
+                params.height = topHeight.toInt()
+                view.layoutParams = params
 
                 pipPosition = PIP_RIGHT_BOTTOM
             } else {
@@ -707,10 +704,15 @@ open class DragView constructor(
                 view.animate()
                     // .x(moveX)
                     // .y(moveY)
-                    .scaleX(scaleSize)
-                    .scaleY(scalePipY)
+//                    .scaleX(scaleSize)
+//                    .scaleY(scalePipY)
                     .setDuration(0)
                     .start()
+
+                val params = view.layoutParams
+                params.width = topWidth.toInt()
+                params.height = topHeight.toInt()
+                view.layoutParams = params
 
                 movePipEdge()
             }
@@ -811,66 +813,43 @@ open class DragView constructor(
      */
     protected fun actionUpMove(parent: View, view: View) {
         NLog.d(TAG, "actionUpMove()")
-        // 마진값
+
         val dragX = view.x
         val dragY = view.y
-
-        // 원래 사이즈와 줄어든 사이즈의 거리 차이점
-        val scaleSizeX = getScaleSizeX(view)
-        val scaleSizeY = getScaleSizeY(view)
 
         // 선택한 이미지 정 가운데 좌표
         var centerX = (dragX + (view.width / 2))
         var centerY = (dragY + (view.height / 2))
 
-        // 값 보정
-        centerX -= scaleSizeX
-        centerY -= scaleSizeY
-
-        var left: Boolean
+        NLog.d(TAG, "actionMove center($centerX, $centerY), drag:[$dragX, $dragY]")
 
         // 왼쪽, 오른쪽 구분
-        val actionMoveX: Float = if (centerX < (parent.width / 2) - scaleSizeX) {
+        val left = if (centerX < (parent.width / 2)) {
             NLog.d(TAG, "actionMove 왼쪽")
-            left = true
-            marginLeft - scaleSizeX
+            true
         } else {
             NLog.d(TAG, "actionMove 오른쪽")
-            left = false
-            scaleSizeX - marginRight
+            false
         }
-        NLog.d(TAG, "actionMove x : $actionMoveX")
 
         // 위, 아래 구분
-        val actionMoveY: Float = if (centerY < (parent.height / 2) - scaleSizeY) {
+        pipPosition = if (centerY < (parent.height / 2)) {
             NLog.d(TAG, "actionMove 위")
-            pipPosition = if (left) {
+            if (left) {
                 PIP_LEFT_TOP
             } else {
                 PIP_RIGHT_TOP
             }
-            -scaleSizeY + marginTop
         } else {
             NLog.d(TAG, "actionMove 아래")
-            pipPosition = if (left) {
+            if (left) {
                 PIP_LEFT_BOTTOM
             } else {
                 PIP_RIGHT_BOTTOM
             }
-            (parent.height - view.height).toFloat() + scaleSizeY - marginBottom
         }
-        NLog.d(TAG, "actionMove y : $actionMoveY")
 
-        NLog.d(
-            TAG,
-            "c:[$actionMoveX, $actionMoveY], x,y:[$dragX, $dragY], scaleSize:[$scaleSizeX, $scaleSizeY]"
-        )
-
-        SpringAnimation(
-            view,
-            DynamicAnimation.TRANSLATION_X,
-            actionMoveX
-        ).start() to SpringAnimation(view, DynamicAnimation.TRANSLATION_Y, actionMoveY).start()
+        movePipEdge()
     }
 
     /**
@@ -878,31 +857,20 @@ open class DragView constructor(
      */
     private fun movePipEdge() {
         NLog.i(TAG, "movePipEdge() pipPosition:[$pipPosition]")
-        // 원래 사이즈와 줄어든 사이즈의 거리 차이점
-        val scaleSizeX = getScaleSizeX(topView)
-        val scaleSizeY = getScaleSizeY(topView)
 
-        var actionMoveX = 0f
-        var actionMoveY = 0f
-
-        when (pipPosition) {
-            PIP_LEFT_TOP -> {
-                actionMoveX = marginLeft - scaleSizeX
-                actionMoveY = -scaleSizeY + marginTop
-            }
-            PIP_RIGHT_TOP -> {
-                actionMoveX = scaleSizeX - marginRight
-                actionMoveY = -scaleSizeY + marginTop
-            }
-            PIP_LEFT_BOTTOM -> {
-                actionMoveX = marginLeft - scaleSizeX
-                actionMoveY = (height - topView.height).toFloat() + scaleSizeY - marginBottom
-            }
-            PIP_RIGHT_BOTTOM -> {
-                actionMoveX = scaleSizeX - marginRight
-                actionMoveY = (height - topView.height).toFloat() + scaleSizeY - marginBottom
-            }
+        val actionMoveX = if (pipPosition == PIP_LEFT_TOP || pipPosition == PIP_LEFT_BOTTOM) {
+            marginLeft.toFloat() - (topView.width / 2)
+        } else {
+            (width - topView.width).toFloat() - marginRight.toFloat() - (topView.width / 2)
         }
+
+        val actionMoveY = if (pipPosition == PIP_LEFT_TOP || pipPosition == PIP_RIGHT_TOP) {
+            marginTop.toFloat()
+        } else {
+            (height - topView.height).toFloat() - marginBottom
+        }
+
+        NLog.i(TAG, "movePipEdge() actionMove($actionMoveX, $actionMoveY)")
 
         SpringAnimation(
             topView,
@@ -949,14 +917,16 @@ open class DragView constructor(
 
         if (viewPositionX < 0) {
             // 왼쪽
-            actionMoveX = -(view.width - ((view.width / 2) - ((view.width * scaleSize) / 2)))
+//            actionMoveX = -(view.width - ((view.width / 2) - ((view.width * scaleSize) / 2)))
+            actionMoveX = (-view.width).toFloat()
             NLog.d(
                 TAG,
                 "checkDragFinish() 왼쪽 viewPositionX:[$viewPositionX], actionMoveX:[$actionMoveX]"
             )
-        } else if (view.width < viewPositionX) {
+        } else if (this.width < viewPositionX) {
             // 오른쪽
-            actionMoveX = view.width - ((view.width / 2) - ((view.width * scaleSize) / 2))
+//            actionMoveX = view.width - ((view.width / 2) - ((view.width * scaleSize) / 2))
+            actionMoveX = (this.width + view.width).toFloat()
             NLog.d(
                 TAG,
                 "checkDragFinish() 오른쪽 viewPositionX:[$viewPositionX], actionMoveX:[$actionMoveX]"
