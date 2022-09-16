@@ -16,15 +16,21 @@ class PlayerViewFragment : Fragment(), IDragViewListener {
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
-    ): View? {
+    ): View {
         binding = FragmentPlayerViewBinding.inflate(layoutInflater)
         return binding.root
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
-        activity?.let { binding.clPlayerLayout.setData(it, binding.flTop, binding.flBottom, this) }
+        binding.run {
+            executePendingBindings()
+        }
+        activity?.let {
+            binding.clPlayerLayout.setData(
+                this
+            )
+        }
         binding.btn1.setOnClickListener {
             Log.i("TEST", "CLICK 1")
         }
@@ -67,17 +73,14 @@ class PlayerViewFragment : Fragment(), IDragViewListener {
 
     override fun onClick() {
         Log.d("TEST", "onClick()")
-
     }
 
     override fun onLongClick() {
         Log.d("TEST", "onLongClick()")
-
     }
 
     override fun onDoubleTab(isLeft: Boolean) {
         Log.d("TEST", "onDoubleTab() isLeft:[$isLeft]")
-
     }
 
     /**

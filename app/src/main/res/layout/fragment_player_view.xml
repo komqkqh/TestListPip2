@@ -1,138 +1,144 @@
 <?xml version="1.0" encoding="utf-8"?>
-<com.example.testlistpip2.dragview.DragView xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:id="@+id/cl_player_layout"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent">
+<layout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
 
-    <FrameLayout
-        android:id="@+id/fl_top"
+    <com.example.testlistpip2.dragview.DragView
+        android:id="@+id/cl_player_layout"
         android:layout_width="match_parent"
-        android:layout_height="250dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent">
+        android:layout_height="match_parent"
+        app:bindBottomView="@{@id/dgv_bottom_view}"
+        app:bindTopView="@{@id/dgv_top_view}">
 
-        <!-- 플레이어 뷰 -->
         <FrameLayout
-            android:id="@+id/fl_player_layout"
+            android:id="@+id/dgv_top_view"
             android:layout_width="match_parent"
-            android:layout_height="match_parent">
+            android:layout_height="250dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent">
 
-            <ImageView
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:background="@drawable/cat1" />
-
-            <!-- 컨트롤러 -->
+            <!-- 플레이어 뷰 -->
             <FrameLayout
-                android:id="@+id/fl_controller"
+                android:id="@+id/fl_player_layout"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent">
 
-                <Button
-                    android:id="@+id/btn_1"
-                    android:layout_width="100dp"
-                    android:layout_height="50dp"
-                    android:layout_gravity="left|center"
-                    android:text="prev" />
+                <ImageView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@drawable/cat1" />
 
-                <Button
-                    android:id="@+id/btn_2"
-                    android:layout_width="100dp"
-                    android:layout_height="50dp"
-                    android:layout_gravity="center"
-                    android:text="=" />
+                <!-- 컨트롤러 -->
+                <FrameLayout
+                    android:id="@+id/fl_controller"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent">
 
-                <Button
-                    android:id="@+id/btn_3"
-                    android:layout_width="100dp"
-                    android:layout_height="50dp"
-                    android:layout_gravity="right|center"
-                    android:text="next" />
+                    <Button
+                        android:id="@+id/btn_1"
+                        android:layout_width="100dp"
+                        android:layout_height="50dp"
+                        android:layout_gravity="left|center"
+                        android:text="prev" />
+
+                    <Button
+                        android:id="@+id/btn_2"
+                        android:layout_width="100dp"
+                        android:layout_height="50dp"
+                        android:layout_gravity="center"
+                        android:text="=" />
+
+                    <Button
+                        android:id="@+id/btn_3"
+                        android:layout_width="100dp"
+                        android:layout_height="50dp"
+                        android:layout_gravity="right|center"
+                        android:text="next" />
+                </FrameLayout>
             </FrameLayout>
+
         </FrameLayout>
 
-    </FrameLayout>
-
-    <FrameLayout
-        android:id="@+id/fl_bottom"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:background="#0000FF"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/fl_top">
-
-        <ScrollView
+        <FrameLayout
+            android:id="@+id/dgv_bottom_view"
             android:layout_width="match_parent"
-            android:layout_height="match_parent">
+            android:layout_height="0dp"
+            android:background="#0000FF"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/dgv_top_view">
 
-            <androidx.appcompat.widget.LinearLayoutCompat
+            <ScrollView
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical">
+                android:layout_height="match_parent">
 
-                <TextView
+                <androidx.appcompat.widget.LinearLayoutCompat
                     android:layout_width="match_parent"
-                    android:layout_height="100dp"
-                    android:padding="20dp"
-                    android:text="테스트 테스트 \n테스트 테스트 "
-                    android:textSize="20dp" />
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="100dp"
-                    android:padding="20dp"
-                    android:text="테스트 테스트 \n테스트 테스트 "
-                    android:textSize="20dp" />
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="100dp"
+                        android:padding="20dp"
+                        android:text="테스트테스트\n테스트테스트"
+                        android:textSize="20dp" />
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="100dp"
-                    android:padding="20dp"
-                    android:text="테스트 테스트 \n테스트 테스트 "
-                    android:textSize="20dp" />
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="100dp"
+                        android:padding="20dp"
+                        android:text="테스트테스트\n테스트테스트"
+                        android:textSize="20dp" />
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="100dp"
-                    android:padding="20dp"
-                    android:text="테스트 테스트 \n테스트 테스트 "
-                    android:textSize="20dp" />
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="100dp"
+                        android:padding="20dp"
+                        android:text="테스트테스트\n테스트테스트"
+                        android:textSize="20dp" />
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="100dp"
-                    android:padding="20dp"
-                    android:text="테스트 테스트 \n테스트 테스트 "
-                    android:textSize="20dp" />
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="100dp"
+                        android:padding="20dp"
+                        android:text="테스트테스트\n테스트테스트"
+                        android:textSize="20dp" />
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="100dp"
-                    android:padding="20dp"
-                    android:text="테스트 테스트 \n테스트 테스트 "
-                    android:textSize="20dp" />
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="100dp"
+                        android:padding="20dp"
+                        android:text="테스트테스트\n테스트테스트"
+                        android:textSize="20dp" />
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="100dp"
-                    android:padding="20dp"
-                    android:text="테스트 테스트 \n테스트 테스트 "
-                    android:textSize="20dp" />
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="100dp"
+                        android:padding="20dp"
+                        android:text="테스트테스트\n테스트테스트"
+                        android:textSize="20dp" />
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="100dp"
-                    android:padding="20dp"
-                    android:text="테스트 테스트 \n테스트 테스트 "
-                    android:textSize="20dp" />
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="100dp"
+                        android:padding="20dp"
+                        android:text="테스트테스트\n테스트테스트"
+                        android:textSize="20dp" />
 
-            </androidx.appcompat.widget.LinearLayoutCompat>
-        </ScrollView>
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="100dp"
+                        android:padding="20dp"
+                        android:text="테스트테스트\n테스트테스트"
+                        android:textSize="20dp" />
 
-    </FrameLayout>
+                </androidx.appcompat.widget.LinearLayoutCompat>
+            </ScrollView>
 
-</com.example.testlistpip2.dragview.DragView>
+        </FrameLayout>
+
+    </com.example.testlistpip2.dragview.DragView>
+
+</layout>
