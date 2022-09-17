@@ -316,7 +316,7 @@ open class DragView constructor(
                         val checkY = event.rawY + moveY
 
                         // 센터로 포지션 잡는 변수
-                        checkX -= (v.width / 2)
+//                        checkX -= (v.width * scaleSize)
 
                         if (checkMoveStart) {
                             checkMoveStart = false
@@ -326,8 +326,8 @@ open class DragView constructor(
                         NLog.i(TAG, "ACTION_MOVE isPipMode check[$checkX, $checkY]")
 
                         v.animate()
-                            .translationX(checkX)
-                            .translationY(checkY)
+                            .x(checkX)
+                            .y(checkY)
                             .setDuration(0)
                             .start()
                     } else {
@@ -659,31 +659,32 @@ open class DragView constructor(
             topView.clipToOutline = true
             bottomView.visibility = View.GONE
 
-            val topWidth = topView.width.toFloat() * scaleSize
-            val topHeight = topView.height.toFloat() * scalePipY
+            val topWidth = pipMinWidth
+            val topHeight = playerPortHeight * scalePipY
 
             // 이동 (원래 사이즈만큼)
             moveX = parentView.width.toFloat() - topWidth
             moveY = parentView.height.toFloat() - topHeight
-            NLog.i(
-                TAG,
-                "moveMin() move:($moveX, $moveY), parentView(${parentView.width}, ${parentView.height}), topView(${topView.width}, ${topView.height})"
-            )
-
-            // 줄어든 사이즈만큼 위치 조절 (비율로 줄어든 만큼 차이점을 계산) !! scale 하게되면 가운데로 줄어들어서 좌표값 계산을 반으로 나눠서 해야됨.
-//            moveX += (topWidth - (topWidth * scaleSize)) / 2
-//            moveY += (topHeight - (topHeight * scalePipY)) / 2
 
             moveX -= marginRight
             moveY -= marginBottom
 
             NLog.i(
                 TAG,
-                "moveMin() move:($moveX, $moveY) - height:$topHeight -> ${(topHeight - (topHeight * scalePipY)) / 2}, width:$topWidth -> ${(topWidth - (topWidth * scaleSize)) / 2}, scaleSize:[$scaleSize], scaleY:[$scalePipY]"
+                "moveMin() move:($moveX, $moveY), parentView(${parentView.width}, ${parentView.height}), topView(${topView.width}, ${topView.height})"
             )
-            NLog.i(TAG, "moveMin() bottomView height:[${bottomView.height}]")
 
+            NLog.i(
+                TAG,
+                "moveMin() top($topWidth, $topHeight), scale($scaleSize, $scalePipY) playerPortHeight:[$playerPortHeight] pipMinWidth:[$pipMinWidth]"
+            )
             if (!isRotation) {
+                val params = view.layoutParams
+                params.width = topWidth
+                params.height = topHeight.toInt()
+                view.layoutParams = params
+                view.requestLayout()
+
                 // 회전 안하고 max -> min 이동
                 view.animate()
                     .x(moveX)
@@ -692,11 +693,6 @@ open class DragView constructor(
 //                    .scaleY(scalePipY)
                     .setDuration(100)
                     .start()
-
-                val params = view.layoutParams
-                params.width = topWidth.toInt()
-                params.height = topHeight.toInt()
-                view.layoutParams = params
 
                 pipPosition = PIP_RIGHT_BOTTOM
             } else {
@@ -713,6 +709,7 @@ open class DragView constructor(
                 params.width = topWidth.toInt()
                 params.height = topHeight.toInt()
                 view.layoutParams = params
+                view.requestLayout()
 
                 movePipEdge()
             }
@@ -858,29 +855,31 @@ open class DragView constructor(
     private fun movePipEdge() {
         NLog.i(TAG, "movePipEdge() pipPosition:[$pipPosition]")
 
-        val actionMoveX = if (pipPosition == PIP_LEFT_TOP || pipPosition == PIP_LEFT_BOTTOM) {
-            marginLeft.toFloat() - (topView.width / 2)
-        } else {
-            (width - topView.width).toFloat() - marginRight.toFloat() - (topView.width / 2)
+        topView.post {
+            val actionMoveX = if (pipPosition == PIP_LEFT_TOP || pipPosition == PIP_LEFT_BOTTOM) {
+                marginLeft.toFloat()
+            } else {
+                (width - topView.width).toFloat() - marginRight.toFloat()
+            }
+
+            val actionMoveY = if (pipPosition == PIP_LEFT_TOP || pipPosition == PIP_RIGHT_TOP) {
+                marginTop.toFloat()
+            } else {
+                (height - topView.height).toFloat() - marginBottom
+            }
+
+            NLog.i(TAG, "movePipEdge() actionMove($actionMoveX, $actionMoveY)")
+
+            SpringAnimation(
+                topView,
+                DynamicAnimation.X,
+                actionMoveX
+            ).start() to SpringAnimation(
+                topView,
+                DynamicAnimation.Y,
+                actionMoveY
+            ).start()
         }
-
-        val actionMoveY = if (pipPosition == PIP_LEFT_TOP || pipPosition == PIP_RIGHT_TOP) {
-            marginTop.toFloat()
-        } else {
-            (height - topView.height).toFloat() - marginBottom
-        }
-
-        NLog.i(TAG, "movePipEdge() actionMove($actionMoveX, $actionMoveY)")
-
-        SpringAnimation(
-            topView,
-            DynamicAnimation.TRANSLATION_X,
-            actionMoveX
-        ).start() to SpringAnimation(
-            topView,
-            DynamicAnimation.TRANSLATION_Y,
-            actionMoveY
-        ).start()
     }
 
     /**
